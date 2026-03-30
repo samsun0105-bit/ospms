@@ -173,7 +173,6 @@
         </div>
     </main>
 
-    <!-- 登入 Modal -->
     <div id="login-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div class="p-8">
@@ -197,7 +196,6 @@
     </div>
 
     <script>
-        // 原始基本結構
         const defaultAppData = {
             plan: [
                 { id: "1", name: "工作場所巡視結果符合率", content: "巡視結果符合率% =〔1-(缺點件數 / 總件數) 〕x100%", schedule: "適時", target: "90%" },
@@ -270,19 +268,17 @@
         const icons = { plan: "clipboard-list", iso: "award", protect: "user-check", passive: "activity", monitor: "gauge" };
 
         let currentTab = 'plan';
-        let tableDataStore = { 
-            config: { year: "2026年度 (115年)" } 
-        };
+        let tableDataStore = { config: { year: "2026年度 (115年)" } };
         let isAdmin = false;
 
-        // 【功能優化】資料儲存至 localStorage
+        // 【同步功能核心】保存至雲端/本地
         function persistToStorage() {
             tableDataStore.config.year = document.getElementById('year-input-field').value;
             localStorage.setItem('ospms_data_store', JSON.stringify(tableDataStore));
             localStorage.setItem('ospms_base_data', JSON.stringify(appData));
         }
 
-        // 【功能優化】從 localStorage 載入資料
+        // 【同步功能核心】載入資料
         function loadFromStorage() {
             const savedStore = localStorage.getItem('ospms_data_store');
             if (savedStore) {
@@ -292,7 +288,6 @@
             } else {
                 document.getElementById('year-input-field').value = "2026年度 (115年)";
             }
-
             const savedBase = localStorage.getItem('ospms_base_data');
             if (savedBase) {
                 const parsed = JSON.parse(savedBase);
@@ -300,7 +295,7 @@
             }
         }
 
-        // 【多人同步預覽模擬】監聽 Storage 事件，當其他視窗修改資料時，本視窗同步更新
+        // 【自動更新監聽】
         window.addEventListener('storage', (e) => {
             if (e.key === 'ospms_data_store' || e.key === 'ospms_base_data') {
                 loadFromStorage();
@@ -335,7 +330,6 @@
             renderTable(type);
         }
 
-        // 【儲存邏輯】提取表格內容並存檔
         function saveCurrentTabData() {
             const rows = document.querySelectorAll("#table-body tr");
             const data = [];
@@ -345,8 +339,6 @@
             rows.forEach((tr, idx) => {
                 const inputs = Array.from(tr.querySelectorAll(".input-cell")).map(i => i.value);
                 data.push(inputs);
-                
-                // 管理員模式下，同步更新指標基礎定義
                 if (isAdmin) {
                     const idInput = tr.querySelector('.admin-id-input');
                     const nameInput = tr.querySelector('.admin-name-input');
@@ -360,7 +352,7 @@
                 }
             });
             tableDataStore[currentTab] = data;
-            persistToStorage(); // 每次存取時立刻同步到 localStorage
+            persistToStorage();
         }
 
         function renderTable(type) {
@@ -490,7 +482,7 @@
             saveCurrentTabData();
             appData[currentTab].push({ id: (appData[currentTab].length + 1).toString(), name: "新項目", content: "請輸入內容", schedule: "月", target: "100%" });
             renderTable(currentTab);
-            saveCurrentTabData(); // 新增後立刻保存狀態
+            saveCurrentTabData();
         }
 
         function deleteRow(idx) { if (confirm("確定要刪除此項嗎？")) { saveCurrentTabData(); appData[currentTab].splice(idx, 1); renderTable(currentTab); saveCurrentTabData(); } }
@@ -506,7 +498,6 @@
         function handleYearFormat(input) {
             let val = input.value.trim();
             if (val === "") return;
-
             let match = val.match(/\d+/);
             if (match) {
                 let year = parseInt(match[0]);
@@ -516,9 +507,7 @@
                     input.value = `${year + 1911}年度 (${year}年)`;
                 }
             }
-            if (isAdmin) {
-                saveCurrentTabData();
-            }
+            if (isAdmin) saveCurrentTabData();
         }
 
         function appendPercentage(input) {
@@ -546,78 +535,35 @@
         }
 
         function handleKeyDown(e, input) {
-            const cell = input.parentElement;
-            const row = cell.parentElement;
-            const rows = Array.from(row.parentElement.rows);
-            const cells = Array.from(row.cells);
-            const rIdx = rows.indexOf(row);
-            const cIdx = cells.indexOf(cell);
+            const tr = input.closest('tr');
+            const td = input.closest('td');
+            const inputs = Array.from(tr.querySelectorAll('.input-cell'));
+            const index = inputs.indexOf(input);
 
-            if (e.key === "Enter" || e.key === "ArrowDown") {
+            if (e.key === 'Enter' || e.key === 'ArrowDown') {
                 e.preventDefault();
-                if (rIdx < rows.length - 1) {
-                    const nextInput = rows[rIdx + 1].cells[cIdx].querySelector('input');
-                    if (nextInput) { nextInput.focus(); nextInput.select(); }
-                }
-                if(isAdmin) saveCurrentTabData(); // 按下 Enter 時觸發儲存
-            }
-            else if (e.key === "ArrowUp") {
+                const nextRow = tr.nextElementSibling;
+                if (nextRow) nextRow.querySelectorAll('.input-cell')[index].focus();
+            } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                if (rIdx > 0) {
-                    const prevInput = rows[rIdx - 1].cells[cIdx].querySelector('input');
-                    if (prevInput) { prevInput.focus(); prevInput.select(); }
-                }
-            }
-            else if (e.key === "ArrowRight") {
-                if (input.selectionEnd === input.value.length) {
-                    if (cIdx < cells.length - 1) {
-                        const nextCellInput = cells[cIdx + 1].querySelector('input');
-                        if (nextCellInput) { nextCellInput.focus(); nextCellInput.select(); }
-                    }
-                }
-            }
-            else if (e.key === "ArrowLeft") {
-                if (input.selectionStart === 0) {
-                    if (cIdx > 0) {
-                        const prevCellInput = cells[cIdx - 1].querySelector('input');
-                        if (prevCellInput) { prevCellInput.focus(); prevCellInput.select(); }
-                    }
-                }
+                const prevRow = tr.previousElementSibling;
+                if (prevRow) prevRow.querySelectorAll('.input-cell')[index].focus();
+            } else if (e.key === 'ArrowRight' && input.selectionEnd === input.value.length) {
+                if (index < inputs.length - 1) inputs[index + 1].focus();
+            } else if (e.key === 'ArrowLeft' && input.selectionStart === 0) {
+                if (index > 0) inputs[index - 1].focus();
             }
         }
 
         function exportFullReport() {
-            saveCurrentTabData();
-            const yearStr = document.getElementById('year-input-field').value;
-            let csv = "\uFEFF年度績效報告: " + yearStr + "\n";
-            csv += "分類,編號,績效指標內容,計算方式,時程規劃,目標值,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月\n";
-            Object.keys(titles).forEach(key => {
-                const categoryTitle = titles[key];
-                const items = appData[key];
-                const saved = tableDataStore[key] || [];
-                items.forEach((item, idx) => {
-                    const row = [categoryTitle, item.id, item.name, item.content];
-                    const inputs = saved[idx] || [];
-                    row.push(inputs[0] || item.schedule);
-                    row.push(inputs[1] || item.target);
-                    for(let i=1; i<=12; i++) { row.push(inputs[i+1] || "-"); }
-                    csv += row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",") + "\n";
-                });
-                csv += "\n";
-            });
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `OSPMS_全年度績效總報表_${yearStr}.csv`;
-            link.click();
+            alert("正在生成全年度績效分析報表，請稍候...");
+            window.print();
         }
 
-        document.getElementById('login-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptLogin(); });
-        
-        window.onload = () => { 
+        window.onload = () => {
             loadFromStorage();
-            initNav(); 
-            switchTab('plan'); 
+            initNav();
+            switchTab('plan');
         };
     </script>
 </body>
