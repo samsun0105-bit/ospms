@@ -36,15 +36,15 @@
             border-radius: 4px; 
             padding: 4px 1px; 
             font-size: 11px; 
-            transition: all 0.1s;
+            transition: all 0.2s;
             background: transparent;
-            user-select: text;
         }
+        /* 鎖定狀態樣式 */
         .input-cell:disabled {
-            cursor: default;
-            opacity: 0.9;
-            color: inherit;
+            cursor: not-allowed;
+            opacity: 0.8;
         }
+        /* 編輯狀態樣式 */
         .input-cell:not(:disabled):hover { border-color: #cbd5e1; background: #fff; }
         .input-cell:not(:disabled):focus { border-color: #3b82f6; background: #fff; outline: none; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
 
@@ -60,13 +60,6 @@
             width: 180px;
             text-align: center;
             font-size: 12px;
-            transition: all 0.2s;
-        }
-        .year-input:focus {
-            background: #fff;
-            border-color: #3b82f6;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
 
         @media print {
@@ -123,10 +116,11 @@
             <div>
                 <h2 id="current-category-title" class="text-xl font-black text-slate-900 tracking-tight leading-none">載入中...</h2>
                 <div class="flex items-center mt-2">
-                    <input type="text" id="year-input-field" class="year-input" placeholder="輸入年份後按Enter" onkeydown="handleYearKeydown(event, this)" onblur="handleYearFormat(this)">
+                    <input type="text" id="year-input-field" class="year-input" value="2026年度 (115年)" onblur="handleYearFormat(this)">
                 </div>
             </div>
             <div class="flex items-center space-x-3 no-print">
+                <!-- 儲存按鈕，僅在管理員模式顯示 -->
                 <button id="save-logout-btn" onclick="saveAndLogout()" class="hidden flex items-center space-x-2 px-5 py-2.5 bg-green-600 text-white rounded-full text-sm font-bold transition shadow-sm hover:bg-green-700">
                     <i data-lucide="save" class="w-4 h-4"></i><span>儲存並登出系統</span>
                 </button>
@@ -137,7 +131,7 @@
         </header>
 
         <div class="p-4 flex-1 overflow-hidden flex flex-col">
-            <div class="table-container" id="scroll-area">
+            <div class="table-container">
                 <table class="w-full text-left border-separate border-spacing-0" id="main-table">
                     <thead>
                         <tr class="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
@@ -145,7 +139,7 @@
                             <th class="px-4 py-4 sticky-col-name border-b">績效指標內容</th>
                             <th class="px-4 py-4 min-w-[250px] border-b border-l">計算方式</th>
                             <th class="px-2 py-4 text-center min-w-[60px] border-b border-l">時程規劃</th>
-                            <th class="px-2 py-4 text-center min-w-[60px] border-b border-l">目標值</th>
+                            <th class="px-2 py-4 text-center min-w-[60px] border-b border-l">目標值月份</th>
                             <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">1月</th>
                             <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">2月</th>
                             <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">3月</th>
@@ -196,112 +190,97 @@
     </div>
 
     <script>
-        const defaultAppData = {
+        const appData = {
             plan: [
                 { id: "1", name: "工作場所巡視結果符合率", content: "巡視結果符合率% =〔1-(缺點件數 / 總件數) 〕x100%", schedule: "適時", target: "90%" },
                 { id: "2", name: "職業安全衛生教育訓練", content: "新進人員到職後實施實施3小時安全衛生教育訓練", schedule: "適時", target: "100%" },
-                { id: "3", name: "職業安全衛生委員會或管審會", content: "依職業安全衛生管理辦法第12條規定，委員會每3個月至少開會1次。", schedule: "季", target: "100%" },
+                { id: "3", name: "職業安全衛生委員會或管審會", content: "依職業安全衛生管理辦法第12條規定，職業安全衛生委員會(以下簡稱委員會)每3個月至少開會1次，辦理審議、協調及建議安全衛生相關事項。", schedule: "季", target: "100%" },
                 { id: "4", name: "安衛相關建議提案改善件數", content: "提案改善率% = 〔1-(逾期件數 / 總件數) 〕x100 %", schedule: "適時", target: "90%" },
                 { id: "5", name: "虛驚事故", content: "虛驚事件改善率% = 〔1-(逾期件數 / 總件數) 〕x100%", schedule: "適時", target: "70%" },
-                { id: "6", name: "安衛證照設置符合率", content: "實際證照數 / 法令規定證照數 x100%", schedule: "適時", target: "100%" },
-                { id: "7", name: "人員證照相關", content: "協助同仁於證照有效期限滿前辦理回訓報名。", schedule: "適時", target: "100%" },
-                { id: "8", name: "安全衛生緊急應變計畫演練", content: "定期規劃實施，防止或降低事件造成的人員傷害。", schedule: "年", target: "100%" },
-                { id: "9", name: "消防防護計畫", content: "製定消防防護計畫，報請消防機關核備並執行。", schedule: "月", target: "100%" },
-                { id: "10", name: "自動檢查計畫", content: "依規定定期更新新安全衛生自動檢查計畫。", schedule: "月", target: "100%" },
-                { id: "11", name: "作業安全管理", content: "高風險作業現場安全查核符合率% = (符合件數 / 總抽查件數) x100%", schedule: "月", target: "100%" },
-                { id: "12", name: "變更管理風險評估", content: "MOC 風險評估完成率% = (已完成 / 總申請案) x100%", schedule: "適時", target: "100%" },
-                { id: "13", name: "安衛自動檢查檢核符合率", content: "累積合格稽核單位數/累積受檢單位數x100%", schedule: "適時", target: "90%" },
-                { id: "14", name: "定期實施一般健康檢查", content: "依年齡級距定期實施一般健康檢查。", schedule: "年", target: "100%" },
-                { id: "15", name: "特殊作業人員檢查計畫", content: "從事特別危害健康作業者，應每年實施特殊健康檢查。", schedule: "年", target: "100%" },
-                { id: "16", name: "員工健康風險評估", content: "安排年度特檢並追蹤異常指標。", schedule: "年", target: "100%" },
-                { id: "17", name: "辦理臨場醫護諮詢服務", content: "特約醫護人員臨場諮詢服務，不定期執行體檢。", schedule: "適時", target: "100%" },
-                { id: "18", name: "危害性化學品清單及SDS安全資料表", content: "每三年檢討一次安全資料表正確性。", schedule: "月", target: "100%" },
-                { id: "19", name: "安全作業標準", content: "擬訂安全衛生作業標準並定期更新。", schedule: "月", target: "100%" },
-                { id: "20", name: "有機溶劑儲藏室危險區域劃分", content: "定期更新危險區域劃分平面圖供備查。", schedule: "季", target: "100%" },
-                { id: "21", name: "承攬、採購、變更管理", content: "執行工作環境危害辨識、評估及控制措施。", schedule: "適時", target: "100%" },
-                { id: "22", name: "承攬商違規改善追蹤", content: "承攬商違規改善追蹤率% = (已改善 / 總違規件數) x100%", schedule: "適時", target: "100%" },
-                { id: "23", name: "主管機關函文公告", content: "將主管機關函文建檔通報並公告。", schedule: "適時", target: "100%" }
+                { id: "6", name: "安衛證照設置符合率", content: "環安衛證照設置符合率 = 實際證照數 / 法令規定證照數 x100%", schedule: "適時", target: "100%" },
+                { id: "7", name: "人員證照相關", content: "協助同仁於證照有效期限滿前辦理回訓報名及相關費用核銷事宜。", schedule: "適時", target: "100%" },
+                { id: "8", name: "安全衛生緊急應變計畫演練", content: "為鑑別可能發生之災害事故或緊急狀況，因應、防止、或降低此類事件所可能造成的人員傷害、財產損失與工作環境影響，定期規劃實施。", schedule: "年", target: "100%" },
+                { id: "9", name: "消防防護計畫", content: "一定規模以上之建築物，應由管理權人，遴用防火管理人，責其製定消防防護計畫，報請消防機關核備，並依該計畫執行有關防火管理上必要之業務。地下建築物中中央管理機關指定之建築物，其管理權有分屬時，各管理權人應協議製定共同消防防護計畫，並報請消防機關核備。", schedule: "月", target: "100%" },
+                { id: "10", name: "自動檢查計畫", content: "依職業安全衛生法 第 23 條及職業安全衛生管理辦法 第 79 條規定，定期更新新安全衛生自動檢查計畫。", schedule: "月", target: "100%" },
+                { id: "11", name: "作業安全管理", content: "高風險作業現場安全查核符合率% = (現場查核符合件數 / 總抽查件數) x100%", schedule: "月", target: "100%" },
+                { id: "12", name: "變更管理風險評估", content: "變更管理 (MOC) 風險評估完成率% = (已完成風險評估之變更案 / 總變更申請案) x100%", schedule: "適時", target: "100%" },
+                { id: "13", name: "安衛自動檢查檢核符合率", content: "安衛自動檢查檢核符合率 = 累積合格稽核單位數/累積受檢單位數x100%", schedule: "適時", target: "90%" },
+                { id: "14", name: "定期實施一般健康檢查", content: "雇主對在職勞工，應依下列規定，定期實施一般健康檢查：一、年滿六十五歲者，每年檢查一次。二、四十歲以上未滿六十五歲者，每三年檢查一次。三、未滿四十歲者，每五年檢查一次。", schedule: "年", target: "100%" },
+                { id: "15", name: "特殊作業人員檢查計畫", content: "雇主使勞工從事特別危害健康作業者，應每年實施特殊健康檢查，依第十六條附表十所定項目，實施特殊健康檢查。", schedule: "年", target: "100%" },
+                { id: "16", name: "員工健康風險評估", content: "針對特殊作業人員，安排年度特檢並追蹤異常指標，防止職業病發生。", schedule: "年", target: "100%" },
+                { id: "17", name: "辦理臨場醫護諮詢服務", content: "專業單位勞工人數在五十人以上未達三百人者，應視其規模及性質，依規定每年實施若干次，特約醫護人員臨場諮詢服務。服務時應不定期執行體格/健康檢查。", schedule: "適時", target: "100%" },
+                { id: "18", name: "危害性化學品清單及SDS安全資料表", content: "製造者、輸入者、供應者或雇主，應依實際狀況檢討安全資料表內容之正確性，適時更新，並至少每三年檢討一次。前項安全資料表更新之內容、日期、版次等更新紀錄，應保存三年。", schedule: "月", target: "100%" },
+                { id: "19", name: "安全作業標準", content: "依職業安全衛生施行細則第31條規定，應擬訂安全衛生作業標準並定期更新，並依程序進行作業。", schedule: "月", target: "100%" },
+                { id: "20", name: "有機溶劑儲藏室危險區域劃分", content: "定期更新危險區域劃分平面圖等資料供主管機關備查。", schedule: "季", target: "100%" },
+                { id: "21", name: "承攬、採購、變更管理", content: "依職業安全衛生法規相關第26~27條規定，執行工作環境或作業危害之辨識、評估及控制、協議管理、承攬管理、變更管理等應變措施事項等職業安全衛生事項。", schedule: "適時", target: "100%" },
+                { id: "22", name: "承攬商違規改善追蹤", content: "承攬商違規改善追蹤率% = (承攬商違規已改善件數 / 總違規件數) x100%", schedule: "適時", target: "100%" },
+                { id: "23", name: "主管機關函文公告", content: "將主管機關函文建檔於公司收發文件管理系統中通報並公告。", schedule: "適時", target: "100%" }
             ],
             iso: [
-                { id: "1", name: "職安風險評估作業盤查", content: "建立、實施及維持風險評估管理計畫。", schedule: "適時", target: "100%" },
-                { id: "2", name: "職安風險與機會評估及規劃措施", content: "有效執行工作環境或作業危害的辨識。", schedule: "適時", target: "100%" },
-                { id: "3", name: "職業安全衛生法規鑑別", content: "定期每月執行法規鑑別一次。", schedule: "月", target: "100%" },
-                { id: "4", name: "職業安全績效指標量測", content: "量測職業安全衛生工作推動之成效。", schedule: "適時", target: "100%" },
-                { id: "5", name: "職業安全管理系統管理審查報告", content: "紀錄於管理審查報告中。", schedule: "適時", target: "100%" },
-                { id: "6", name: "ISO45001職業安全衛生管理系統內外部稽核", content: "配合定期執行 ISO 45001 審查。", schedule: "年", target: "100%" }
+                { id: "1", name: "職安風險評估作業盤查", content: "依ISO 45001安全衛生法規及職業安全衛生管理系統相關規範等要求，建立、實施及維持風險評估管理計畫或程序，以有效執行工作環境或作業危害的辨識、評估及控制。", schedule: "適時", target: "100%" },
+                { id: "2", name: "職安風險與機會評估及規劃措施", content: "依ISO 45001安全衛生法規及職業安全衛生管理系統相關規範等要求，建立、實施及維持風險評估管理計畫或程序，以有效執行工作環境或作業危害的辨識、評估及控制。", schedule: "適時", target: "100%" },
+                { id: "3", name: "職業安全衛生法規鑑別", content: "依法規要求職安承辦人員應定期每月執行法規鑑別一次，以評估適用法規之符合性。", schedule: "月", target: "100%" },
+                { id: "4", name: "職業安全績效指標量測", content: "依規定執行職業安全衛生管理計畫之查(稽)核與績效，予以量測職業安全衛生工作推動之成效。", schedule: "適時", target: "100%" },
+                { id: "5", name: "職業安全管理系統管理審查報告", content: "依ISO 45001職業安全衛生管理系統規定將職業安全衛生相關執行事項紀錄於管理審查報告中。", schedule: "適時", target: "100%" },
+                { id: "6", name: "ISO45001職業安全衛生管理系統內外部稽核", content: "配合TUV驗證機構定期執行ISO 45001職業安全衛生管理系統之審查。", schedule: "年", target: "100%" }
             ],
             protect: [
-                { id: "1", name: "人因性危害預防計畫", content: "分析肌肉骨骼傷病調查與管控追蹤。", schedule: "月", target: "100%" },
-                { id: "2", name: "異常工作負荷促發疾病預防計畫", content: "評估工作負荷量是否造成員工過勞。", schedule: "月", target: "100%" },
-                { id: "3", name: "執行職務遭受不法侵害預防計畫", content: "調查是否有發生職場暴力之情事。", schedule: "月", target: "100%" },
-                { id: "4", name: "母性健康保護計畫", content: "妊娠員工分娩後合理安置與管理。", schedule: "適時", target: "100%" }
+                { id: "1", name: "人因性危害預防計畫", content: "依去年度健康檢查報告分析肌肉骨骼之傷病調查與管控追蹤紀錄。", schedule: "月", target: "100%" },
+                { id: "2", name: "異常工作負荷促發疾病預防計畫", content: "依異常工作負荷風險評估對照表，評估工作負荷量是否造成員工過勞。", schedule: "月", target: "100%" },
+                { id: "3", name: "執行職務遭受不法侵害預防計畫", content: "依職場不法侵害預防措施查核及評估表以及主管層級職場不法侵害行為自我檢視檢核表調查是否有發生職場暴力之情事。", schedule: "月", target: "100%" },
+                { id: "4", name: "母性健康保護計畫", content: "依法規定使妊娠中的員工在分娩後，在工作獲致合法合理的安置與管理。", schedule: "適時", target: "100%" }
             ],
             passive: [
-                { id: "1", name: "失能災害頻率 (FR)", content: "失能傷害人次數 x 1,000,000 / 總經歷工時", schedule: "適時", target: "<0.79" },
-                { id: "2", name: "失能災害嚴重率 (SR)", content: "總失能損失日數 x 1,000,000 / 總經歷工時", schedule: "適時", target: "<32" }
+                { id: "1", name: "失能災害頻率 (FR)", content: "失能災害頻率 (FR) = 失能傷害人次數x 1,000,000 / 總經歷工時", schedule: "適時", target: "<0.79" },
+                { id: "2", name: "失能災害嚴重率 (SR)", content: "失能災害嚴重率 (SR) = 總失能損失日數x 1,000,000 / 總經歷工時", schedule: "適時", target: "<32" }
             ],
             monitor: [
-                { id: "1", name: "作業環境監測計畫", content: "每半年委託執行(有機溶劑/噪音/照度)。", schedule: "半年", target: "100%" },
-                { id: "2", name: "作業環境監測申報", content: "向當地主管機關進行核備作業。", schedule: "半年", target: "100%" },
-                { id: "3", name: "職業災害定期申報", content: "每月10號前線上申報整體工時。", schedule: "月", target: "100%" },
-                { id: "4", name: "單位及人員設置報備", content: "線上申報確認核備之人員。", schedule: "月", target: "100%" },
-                { id: "5", name: "急救箱定期檢查", content: "至少每三個月定期檢查補充。", schedule: "月", target: "100%" },
-                { id: "6", name: "AED自動體外心臟去顫器檢查", content: "依計畫實施 AED 檢查並紀錄。", schedule: "月", target: "100%" },
-                { id: "7", name: "化學品進出使用量統計", content: "核算空汙申報量之統計。", schedule: "月", target: "100%" },
-                { id: "8", name: "危險物有害物分級管理申報", content: "採取對應之分級管理措施。", schedule: "月", target: "100%" },
-                { id: "9", name: "幅射防護實化申報", content: "透過輻防雲化系統進行電子化申辦。", schedule: "月", target: "100%" },
-                { id: "10", name: "空汙定期申報", content: "確認 100% 合格。", schedule: "季", target: "100%" },
-                { id: "11", name: "汙水定期申報", content: "生活廢水及下水道使用申報。", schedule: "半年", target: "100%" },
-                { id: "12", name: "土壤及地下汙水申報", content: "定期申報，確認 100% 合格。", schedule: "月", target: "100%" },
-                { id: "13", name: "緊急發電機設備檢查", content: "發電機裝置每月定期檢查記錄。", schedule: "月", target: "100%" },
-                { id: "14", name: "防爆電氣設備檢查", content: "每月定期實施檢查一次。", schedule: "月", target: "100%" },
-                { id: "15", name: "局部排氣裝置檢查", content: "每月定期實施檢查一次。", schedule: "月", target: "100%" },
-                { id: "16", name: "個人防護具檢查", content: "保持清潔並經常檢查性能。", schedule: "月", target: "100%" },
-                { id: "17", name: "消防安全檢查", content: "乙類場所每年實施一次。", schedule: "年", target: "100%" },
-                { id: "18", name: "機電安全檢查", content: "高低壓電氣設備每年檢查一次。", schedule: "年", target: "100%" },
-                { id: "19", name: "建築公共安全檢查", content: "申報頻率為每兩年一次。", schedule: "2年", target: "100%" }
+                { id: "1", name: "作業環境監測計畫(有機溶劑揮發)", content: "每半年委託監測機構，執行作業環境監測(有機溶劑揮發/噪音/照度)。", schedule: "半年", target: "100%" },
+                { id: "2", name: "作業環境監測申報", content: "每半年於作業環境監測規劃實施前須先向當地主管機關進行核備作業。", schedule: "半年", target: "100%" },
+                { id: "3", name: "職業災害定期申報", content: "每月10號前向人事索取整體工時，於工作者安全衛生履歷智能雲線上申報。", schedule: "月", target: "100%" },
+                { id: "4", name: "單位及人員設置報備", content: "每月於工作者安全衛生履歷智能雲線上申報確認核備之人員。", schedule: "月", target: "100%" },
+                { id: "5", name: "急救箱定期檢查", content: "依勞工健康保護規則第15條規定，急救藥品與器材，應置於適當固定處所及保持清潔，至少每三個月定期檢查。對於被污染或失效之物品，應隨時予以更換及補充。", schedule: "月", target: "100%" },
+                { id: "6", name: "AED自動體外心臟去顫器檢查", content: "依訂定之年度自動檢查計畫實施AED自動體外心臟去顫器檢查並紀錄備查。", schedule: "月", target: "100%" },
+                { id: "7", name: "化學品進出使用量統計", content: "紀錄所有有機溶劑進出使用量予以核算空汙申報量之統計。", schedule: "月", target: "100%" },
+                { id: "8", name: "危險物有害物分級管理申報", content: "雇主使勞工製造、處置或使用之化學品，符合國家標準CNS15030化學品分類，具有健康危害者，應評估其危害及暴露程度，劃分風險等級，並採取對應之分級管理措施。", schedule: "月", target: "100%" },
+                { id: "9", name: "幅射防護實化申報", content: "所有幅射設備的申請、使用、異動變更、停用以及狀態查詢，都必須透過輻防雲化系統進行電子化申辦及查詢。", schedule: "月", target: "100%" },
+                { id: "10", name: "空汙定期申報", content: "空汙定期申報，溶劑變更主動回報，確認100%合格", schedule: "季", target: "1次/季，100%合格" },
+                { id: "11", name: "汙水定期申報", content: "生活廢水及下水道使用申報", schedule: "半年", target: "1次/半年，100%合格" },
+                { id: "12", name: "土壤及地下汙水申報", content: "土壤及地下汙水定期申報，確認100%合格", schedule: "月", target: "1次/月，100%合格" },
+                { id: "13", name: "緊急發電機設備檢查", content: "發電機裝置每月定期檢查記錄", schedule: "月", target: "100%" },
+                { id: "14", name: "防爆電氣設備檢查", content: "依法規規定應每月依下列規定定期實施檢查一次，檢查內容：一、本體有無損傷、變形。二、配管、配線等有無損傷、變形及異常狀況。三、其他保持防爆性能之必要事項。", schedule: "月", target: "100%" },
+                { id: "15", name: "局部排氣裝置檢查", content: "雇主對局部排氣裝置、空氣清淨裝置及吹吸型換氣裝置應每月依下列規定定期實施檢查一次：一、風罩、導管及排氣機之磨損、腐蝕、凹凸及其他損壞之狀況及程度。二、導管或排氣機之塵埃聚積狀況。三、排氣機之注油潤滑狀況。", schedule: "月", target: "100%" },
+                { id: "16", name: "個人防護具檢查", content: "雇主供給勞工使用之個人防護具或防護器具，應每月依下列規定定期實施檢查一次：一、保持清潔，並予必要之消毒。二、經常檢查，保持其性能，不用時並妥予保存。", schedule: "月", target: "100%" },
+                { id: "17", name: "消防安全檢查", content: "於各類場所消防安全設備設置標準規定之乙類場所，每年實施一次。", schedule: "年", target: "100%" },
+                { id: "18", name: "機電安全檢查", content: "雇主對高低壓電氣設備，應於每年依下列規定定期實施檢查一次：一、高低壓受電盤及分電盤（含各種電驛、儀表及具切換開關等）之動作試驗。二、高低壓用電設備絕緣情形、接地電阻及其他安全設備狀況。三、自備屋外高低壓配電線路情況。", schedule: "年", target: "100%" },
+                { id: "19", name: "建築公共安全檢查", content: "建築公共安全類別工業、倉儲類未達一千平方公尺以上檢查及申報頻率為每兩年一次。", schedule: "2年", target: "100%" }
             ]
         };
 
-        let appData = JSON.parse(JSON.stringify(defaultAppData));
         const titles = { plan: "職業安全衛生管理計畫", iso: "ISO 45001 管理審查", protect: "四大保護計畫", passive: "被動性指標", monitor: "自主監測及主動回報" };
         const icons = { plan: "clipboard-list", iso: "award", protect: "user-check", passive: "activity", monitor: "gauge" };
 
         let currentTab = 'plan';
-        let tableDataStore = { config: { year: "2026年度 (115年)" } };
+        let tableDataStore = {};
         let isAdmin = false;
 
-        // 【同步功能核心】保存至雲端/本地
-        function persistToStorage() {
-            tableDataStore.config.year = document.getElementById('year-input-field').value;
-            localStorage.setItem('ospms_data_store', JSON.stringify(tableDataStore));
-            localStorage.setItem('ospms_base_data', JSON.stringify(appData));
-        }
-
-        // 【同步功能核心】載入資料
+        // 初始化儲存：從 localStorage 讀取
         function loadFromStorage() {
-            const savedStore = localStorage.getItem('ospms_data_store');
-            if (savedStore) {
-                tableDataStore = JSON.parse(savedStore);
-                if (!tableDataStore.config) tableDataStore.config = { year: "2026年度 (115年)" };
-                document.getElementById('year-input-field').value = tableDataStore.config.year;
-            } else {
-                document.getElementById('year-input-field').value = "2026年度 (115年)";
+            const saved = localStorage.getItem('ospms_data_store');
+            if (saved) {
+                tableDataStore = JSON.parse(saved);
             }
-            const savedBase = localStorage.getItem('ospms_base_data');
-            if (savedBase) {
-                const parsed = JSON.parse(savedBase);
+            const savedBaseData = localStorage.getItem('ospms_base_data');
+            if (savedBaseData) {
+                const parsed = JSON.parse(savedBaseData);
                 Object.keys(parsed).forEach(k => { if(appData[k]) appData[k] = parsed[k]; });
             }
         }
 
-        // 【自動更新監聽】
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'ospms_data_store' || e.key === 'ospms_base_data') {
-                loadFromStorage();
-                renderTable(currentTab);
-            }
-        });
+        function persistToStorage() {
+            localStorage.setItem('ospms_data_store', JSON.stringify(tableDataStore));
+            localStorage.setItem('ospms_base_data', JSON.stringify(appData));
+        }
 
         function initNav() {
             const nav = document.getElementById('nav-tabs');
@@ -318,7 +297,9 @@
         }
 
         function switchTab(type) {
-            if (isAdmin) saveCurrentTabData();
+            if (isAdmin) {
+                saveCurrentTabData(); // 如果是管理員模式，切換時自動暫存
+            }
             currentTab = type;
             document.querySelectorAll('nav button').forEach(btn => {
                 btn.classList.remove('text-white', 'bg-slate-800', 'border-blue-500');
@@ -333,9 +314,6 @@
         function saveCurrentTabData() {
             const rows = document.querySelectorAll("#table-body tr");
             const data = [];
-            const yearVal = document.getElementById('year-input-field').value;
-            tableDataStore.config = { year: yearVal };
-
             rows.forEach((tr, idx) => {
                 const inputs = Array.from(tr.querySelectorAll(".input-cell")).map(i => i.value);
                 data.push(inputs);
@@ -344,7 +322,9 @@
                     const nameInput = tr.querySelector('.admin-name-input');
                     const contentInput = tr.querySelector('.admin-content-input');
                     if (idInput && nameInput && contentInput) {
-                        if (!appData[currentTab][idx]) appData[currentTab][idx] = {};
+                        if (!appData[currentTab][idx]) {
+                            appData[currentTab][idx] = {};
+                        }
                         appData[currentTab][idx].id = idInput.value;
                         appData[currentTab][idx].name = nameInput.value;
                         appData[currentTab][idx].content = contentInput.value;
@@ -352,7 +332,6 @@
                 }
             });
             tableDataStore[currentTab] = data;
-            persistToStorage();
         }
 
         function renderTable(type) {
@@ -362,20 +341,15 @@
             const headerAction = document.getElementById('admin-header-action');
             const adminSection = document.getElementById('admin-add-section');
             const saveBtn = document.getElementById('save-logout-btn');
-            const yearInput = document.getElementById('year-input-field');
 
             if (isAdmin) { 
                 headerAction.classList.remove('hidden'); 
                 adminSection.classList.remove('hidden'); 
                 saveBtn.classList.remove('hidden');
-                yearInput.removeAttribute('readonly');
-                yearInput.classList.remove('opacity-75');
             } else { 
                 headerAction.classList.add('hidden'); 
                 adminSection.classList.add('hidden'); 
                 saveBtn.classList.add('hidden');
-                yearInput.setAttribute('readonly', true);
-                yearInput.classList.add('opacity-75');
             }
 
             appData[type].forEach((item, rowIndex) => {
@@ -388,26 +362,25 @@
                     const val = rowSaved[i+1] !== undefined ? rowSaved[i+1] : "";
                     monthCells += `<td class="px-1 py-2 border-l border-b">
                         <input type="text" class="input-cell" placeholder="-" value="${val}"
-                               ${!isAdmin ? 'readonly' : ''}
-                               onchange="formatInput(this)" onblur="appendPercentage(this); if(isAdmin) saveCurrentTabData();"
-                               onkeydown="handleKeyDown(event, this)"
-                               onclick="this.select()">
+                               ${!isAdmin ? 'disabled' : ''}
+                               onchange="formatInput(this)" onblur="appendPercentage(this)"
+                               onkeydown="handleKeyDown(event, this)">
                     </td>`;
                 }
 
-                const idHTML = isAdmin ? `<input type="text" class="admin-id-input w-full bg-transparent text-center font-bold admin-edit-cell rounded" value="${item.id}" onblur="saveCurrentTabData()">` : item.id;
-                const nameHTML = isAdmin ? `<textarea class="admin-name-input w-full text-[11px] leading-tight admin-edit-cell rounded p-1 h-12" onblur="saveCurrentTabData()" oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'">${item.name}</textarea>` : `<div class="text-[11px] font-bold leading-tight">${item.name}</div>`;
-                const contentHTML = isAdmin ? `<textarea class="admin-content-input w-full text-[10px] leading-normal admin-edit-cell rounded p-1 h-12" onblur="saveCurrentTabData()" oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'">${item.content}</textarea>` : `<div class="text-[10px] text-slate-500 leading-normal">${item.content}</div>`;
+                const idHTML = isAdmin ? `<input type="text" class="admin-id-input w-full bg-transparent text-center font-bold admin-edit-cell rounded" value="${item.id}">` : item.id;
+                const nameHTML = isAdmin ? `<textarea class="admin-name-input w-full text-[11px] leading-tight admin-edit-cell rounded p-1 h-12" oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'">${item.name}</textarea>` : `<div class="text-[11px] font-bold leading-tight">${item.name}</div>`;
+                const contentHTML = isAdmin ? `<textarea class="admin-content-input w-full text-[10px] leading-normal admin-edit-cell rounded p-1 h-12" oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'">${item.content}</textarea>` : `<div class="text-[10px] text-slate-500 leading-normal">${item.content}</div>`;
 
                 row.innerHTML = `
                     <td class="px-2 py-4 text-[10px] font-bold text-slate-400 sticky-col-num border-b">${idHTML}</td>
                     <td class="px-4 py-4 sticky-col-name border-b">${nameHTML}</td>
                     <td class="px-4 py-4 border-l border-b bg-white group-hover:bg-slate-50/50">${contentHTML}</td>
                     <td class="px-1 py-2 border-l border-b bg-white group-hover:bg-slate-50/50">
-                        <input type="text" class="input-cell font-bold text-slate-400" value="${rowSaved[0] || item.schedule}" ${!isAdmin ? 'readonly' : ''} onkeydown="handleKeyDown(event, this)" onblur="if(isAdmin) saveCurrentTabData()" onclick="this.select()">
+                        <input type="text" class="input-cell font-bold text-slate-400" value="${rowSaved[0] || item.schedule}" ${!isAdmin ? 'disabled' : ''} onkeydown="handleKeyDown(event, this)">
                     </td>
                     <td class="px-1 py-2 border-l border-b bg-white group-hover:bg-slate-50/50">
-                        <input type="text" class="input-cell font-black text-blue-600" value="${rowSaved[1] || item.target}" ${!isAdmin ? 'readonly' : ''} onkeydown="handleKeyDown(event, this)" onblur="if(isAdmin) saveCurrentTabData()" onclick="this.select()">
+                        <input type="text" class="input-cell font-black text-blue-600" value="${rowSaved[1] || item.target}" ${!isAdmin ? 'disabled' : ''} onkeydown="handleKeyDown(event, this)">
                     </td>
                     ${monthCells}
                     <td class="${isAdmin ? '' : 'hidden'} px-2 py-2 border-l border-b text-center">
@@ -420,9 +393,11 @@
             lucide.createIcons();
         }
 
+        // 登入邏輯
         function openLoginModal() {
             if (isAdmin) {
-                if (confirm("目前處於編輯模式，是否要直接退出編輯（資料已自動儲存）？")) {
+                // 已登入狀態點擊鎖頭，視為取消編輯
+                if (confirm("目前處於編輯模式，是否要直接退出編輯（不儲存）？")) {
                     isAdmin = false;
                     updateUIState();
                     renderTable(currentTab);
@@ -446,7 +421,8 @@
                 updateUIState();
                 closeLoginModal(); 
                 renderTable(currentTab); 
-            } else { 
+            }
+            else { 
                 document.getElementById('login-error').classList.remove('hidden'); 
             }
         }
@@ -466,11 +442,15 @@
             lucide.createIcons();
         }
 
+        // 核心功能：儲存並登出
         function saveAndLogout() {
-            saveCurrentTabData();
-            isAdmin = false;
+            saveCurrentTabData(); // 暫存當前頁面數據到 memory
+            persistToStorage();  // 永久保存到 localStorage
+            isAdmin = false;     // 登出
             updateUIState();
-            renderTable(currentTab);
+            renderTable(currentTab); // 重新渲染（變回 disabled）
+            
+            // 提示儲存成功 (自定義 UI)
             const notify = document.createElement('div');
             notify.className = "fixed top-5 left-1/2 -translate-x-1/2 bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-2xl z-[200] animate-bounce";
             notify.innerText = "資料已永久儲存並成功登出！";
@@ -482,40 +462,23 @@
             saveCurrentTabData();
             appData[currentTab].push({ id: (appData[currentTab].length + 1).toString(), name: "新項目", content: "請輸入內容", schedule: "月", target: "100%" });
             renderTable(currentTab);
-            saveCurrentTabData();
         }
 
-        function deleteRow(idx) { if (confirm("確定要刪除此項嗎？")) { saveCurrentTabData(); appData[currentTab].splice(idx, 1); renderTable(currentTab); saveCurrentTabData(); } }
-
-        function handleYearKeydown(e, input) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleYearFormat(input);
-                input.blur();
-            }
-        }
+        function deleteRow(idx) { if (confirm("確定要刪除此項嗎？")) { saveCurrentTabData(); appData[currentTab].splice(idx, 1); renderTable(currentTab); } }
 
         function handleYearFormat(input) {
             let val = input.value.trim();
-            if (val === "") return;
             let match = val.match(/\d+/);
             if (match) {
                 let year = parseInt(match[0]);
-                if (year > 1911) {
-                    input.value = `${year}年度 (${year - 1911}年)`;
-                } else {
-                    input.value = `${year + 1911}年度 (${year}年)`;
-                }
+                if (year > 1911) input.value = `${year}年度 (${year - 1911}年)`;
+                else input.value = `${year + 1911}年度 (${year}年)`;
             }
-            if (isAdmin) saveCurrentTabData();
         }
 
         function appendPercentage(input) {
             let val = input.value.trim();
-            if (val !== "" && val !== "-" && !isNaN(val)) { 
-                input.value = val + "%"; 
-                formatInput(input); 
-            }
+            if (val !== "" && val !== "-" && !isNaN(val)) { input.value = val + "%"; formatInput(input); }
         }
 
         function formatInput(input) {
@@ -535,35 +498,47 @@
         }
 
         function handleKeyDown(e, input) {
-            const tr = input.closest('tr');
-            const td = input.closest('td');
-            const inputs = Array.from(tr.querySelectorAll('.input-cell'));
-            const index = inputs.indexOf(input);
-
-            if (e.key === 'Enter' || e.key === 'ArrowDown') {
-                e.preventDefault();
-                const nextRow = tr.nextElementSibling;
-                if (nextRow) nextRow.querySelectorAll('.input-cell')[index].focus();
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                const prevRow = tr.previousElementSibling;
-                if (prevRow) prevRow.querySelectorAll('.input-cell')[index].focus();
-            } else if (e.key === 'ArrowRight' && input.selectionEnd === input.value.length) {
-                if (index < inputs.length - 1) inputs[index + 1].focus();
-            } else if (e.key === 'ArrowLeft' && input.selectionStart === 0) {
-                if (index > 0) inputs[index - 1].focus();
-            }
+            const cell = input.parentElement;
+            const row = cell.parentElement;
+            const rows = Array.from(row.parentElement.rows);
+            const rIdx = rows.indexOf(row);
+            const cIdx = Array.from(row.cells).indexOf(cell);
+            if (e.key === "Enter" || e.key === "ArrowDown") { if (rIdx < rows.length - 1) rows[rIdx + 1].cells[cIdx].querySelector('input')?.focus(); }
+            else if (e.key === "ArrowUp") { if (rIdx > 0) rows[rIdx - 1].cells[cIdx].querySelector('input')?.focus(); }
         }
 
         function exportFullReport() {
-            alert("正在生成全年度績效分析報表，請稍候...");
-            window.print();
+            saveCurrentTabData();
+            const yearStr = document.getElementById('year-input-field').value;
+            let csv = "\uFEFF年度績效報告: " + yearStr + "\n";
+            csv += "分類,編號,績效指標內容,計算方式,時程規劃,目標值,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月\n";
+            Object.keys(titles).forEach(key => {
+                const categoryTitle = titles[key];
+                const items = appData[key];
+                const saved = tableDataStore[key] || [];
+                items.forEach((item, idx) => {
+                    const row = [categoryTitle, item.id, item.name, item.content];
+                    const inputs = saved[idx] || [];
+                    row.push(inputs[0] || item.schedule);
+                    row.push(inputs[1] || item.target);
+                    for(let i=1; i<=12; i++) { row.push(inputs[i+1] || "-"); }
+                    csv += row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",") + "\n";
+                });
+                csv += "\n";
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `OSPMS_全年度績效總報表_${yearStr}.csv`;
+            link.click();
         }
 
-        window.onload = () => {
-            loadFromStorage();
-            initNav();
-            switchTab('plan');
+        document.getElementById('login-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptLogin(); });
+        
+        window.onload = () => { 
+            loadFromStorage(); // 啟動時先讀取舊資料
+            initNav(); 
+            switchTab('plan'); 
         };
     </script>
 </body>
