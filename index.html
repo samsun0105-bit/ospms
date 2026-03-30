@@ -38,16 +38,13 @@
             font-size: 11px; 
             transition: all 0.1s;
             background: transparent;
-            /* 允許選取內容 */
             user-select: text;
         }
-        /* 鎖定狀態樣式 */
         .input-cell:disabled {
             cursor: default;
             opacity: 0.9;
             color: inherit;
         }
-        /* 編輯狀態樣式 */
         .input-cell:not(:disabled):hover { border-color: #cbd5e1; background: #fff; }
         .input-cell:not(:disabled):focus { border-color: #3b82f6; background: #fff; outline: none; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
 
@@ -63,6 +60,13 @@
             width: 180px;
             text-align: center;
             font-size: 12px;
+            transition: all 0.2s;
+        }
+        .year-input:focus {
+            background: #fff;
+            border-color: #3b82f6;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
 
         @media print {
@@ -119,7 +123,7 @@
             <div>
                 <h2 id="current-category-title" class="text-xl font-black text-slate-900 tracking-tight leading-none">載入中...</h2>
                 <div class="flex items-center mt-2">
-                    <input type="text" id="year-input-field" class="year-input" value="2026年度 (115年)" onblur="handleYearFormat(this)">
+                    <input type="text" id="year-input-field" class="year-input" placeholder="輸入年份後按Enter" onkeydown="handleYearKeydown(event, this)" onblur="handleYearFormat(this)">
                 </div>
             </div>
             <div class="flex items-center space-x-3 no-print">
@@ -141,7 +145,7 @@
                             <th class="px-4 py-4 sticky-col-name border-b">績效指標內容</th>
                             <th class="px-4 py-4 min-w-[250px] border-b border-l">計算方式</th>
                             <th class="px-2 py-4 text-center min-w-[60px] border-b border-l">時程規劃</th>
-                            <th class="px-2 py-4 text-center min-w-[60px] border-b border-l">目標值月份</th>
+                            <th class="px-2 py-4 text-center min-w-[60px] border-b border-l">目標值</th>
                             <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">1月</th>
                             <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">2月</th>
                             <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">3月</th>
@@ -193,8 +197,8 @@
     </div>
 
     <script>
-        // 原始數據
-        const appData = {
+        // 原始基本結構
+        const defaultAppData = {
             plan: [
                 { id: "1", name: "工作場所巡視結果符合率", content: "巡視結果符合率% =〔1-(缺點件數 / 總件數) 〕x100%", schedule: "適時", target: "90%" },
                 { id: "2", name: "職業安全衛生教育訓練", content: "新進人員到職後實施實施3小時安全衛生教育訓練", schedule: "適時", target: "100%" },
@@ -261,27 +265,48 @@
             ]
         };
 
+        let appData = JSON.parse(JSON.stringify(defaultAppData));
         const titles = { plan: "職業安全衛生管理計畫", iso: "ISO 45001 管理審查", protect: "四大保護計畫", passive: "被動性指標", monitor: "自主監測及主動回報" };
         const icons = { plan: "clipboard-list", iso: "award", protect: "user-check", passive: "activity", monitor: "gauge" };
 
         let currentTab = 'plan';
-        let tableDataStore = {};
+        let tableDataStore = { 
+            config: { year: "2026年度 (115年)" } 
+        };
         let isAdmin = false;
 
+        // 【功能優化】資料儲存至 localStorage
+        function persistToStorage() {
+            tableDataStore.config.year = document.getElementById('year-input-field').value;
+            localStorage.setItem('ospms_data_store', JSON.stringify(tableDataStore));
+            localStorage.setItem('ospms_base_data', JSON.stringify(appData));
+        }
+
+        // 【功能優化】從 localStorage 載入資料
         function loadFromStorage() {
-            const saved = localStorage.getItem('ospms_data_store');
-            if (saved) tableDataStore = JSON.parse(saved);
-            const savedBaseData = localStorage.getItem('ospms_base_data');
-            if (savedBaseData) {
-                const parsed = JSON.parse(savedBaseData);
+            const savedStore = localStorage.getItem('ospms_data_store');
+            if (savedStore) {
+                tableDataStore = JSON.parse(savedStore);
+                if (!tableDataStore.config) tableDataStore.config = { year: "2026年度 (115年)" };
+                document.getElementById('year-input-field').value = tableDataStore.config.year;
+            } else {
+                document.getElementById('year-input-field').value = "2026年度 (115年)";
+            }
+
+            const savedBase = localStorage.getItem('ospms_base_data');
+            if (savedBase) {
+                const parsed = JSON.parse(savedBase);
                 Object.keys(parsed).forEach(k => { if(appData[k]) appData[k] = parsed[k]; });
             }
         }
 
-        function persistToStorage() {
-            localStorage.setItem('ospms_data_store', JSON.stringify(tableDataStore));
-            localStorage.setItem('ospms_base_data', JSON.stringify(appData));
-        }
+        // 【多人同步預覽模擬】監聽 Storage 事件，當其他視窗修改資料時，本視窗同步更新
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'ospms_data_store' || e.key === 'ospms_base_data') {
+                loadFromStorage();
+                renderTable(currentTab);
+            }
+        });
 
         function initNav() {
             const nav = document.getElementById('nav-tabs');
@@ -310,12 +335,18 @@
             renderTable(type);
         }
 
+        // 【儲存邏輯】提取表格內容並存檔
         function saveCurrentTabData() {
             const rows = document.querySelectorAll("#table-body tr");
             const data = [];
+            const yearVal = document.getElementById('year-input-field').value;
+            tableDataStore.config = { year: yearVal };
+
             rows.forEach((tr, idx) => {
                 const inputs = Array.from(tr.querySelectorAll(".input-cell")).map(i => i.value);
                 data.push(inputs);
+                
+                // 管理員模式下，同步更新指標基礎定義
                 if (isAdmin) {
                     const idInput = tr.querySelector('.admin-id-input');
                     const nameInput = tr.querySelector('.admin-name-input');
@@ -329,6 +360,7 @@
                 }
             });
             tableDataStore[currentTab] = data;
+            persistToStorage(); // 每次存取時立刻同步到 localStorage
         }
 
         function renderTable(type) {
@@ -338,15 +370,20 @@
             const headerAction = document.getElementById('admin-header-action');
             const adminSection = document.getElementById('admin-add-section');
             const saveBtn = document.getElementById('save-logout-btn');
+            const yearInput = document.getElementById('year-input-field');
 
             if (isAdmin) { 
                 headerAction.classList.remove('hidden'); 
                 adminSection.classList.remove('hidden'); 
                 saveBtn.classList.remove('hidden');
+                yearInput.removeAttribute('readonly');
+                yearInput.classList.remove('opacity-75');
             } else { 
                 headerAction.classList.add('hidden'); 
                 adminSection.classList.add('hidden'); 
                 saveBtn.classList.add('hidden');
+                yearInput.setAttribute('readonly', true);
+                yearInput.classList.add('opacity-75');
             }
 
             appData[type].forEach((item, rowIndex) => {
@@ -360,25 +397,25 @@
                     monthCells += `<td class="px-1 py-2 border-l border-b">
                         <input type="text" class="input-cell" placeholder="-" value="${val}"
                                ${!isAdmin ? 'readonly' : ''}
-                               onchange="formatInput(this)" onblur="appendPercentage(this)"
+                               onchange="formatInput(this)" onblur="appendPercentage(this); if(isAdmin) saveCurrentTabData();"
                                onkeydown="handleKeyDown(event, this)"
                                onclick="this.select()">
                     </td>`;
                 }
 
-                const idHTML = isAdmin ? `<input type="text" class="admin-id-input w-full bg-transparent text-center font-bold admin-edit-cell rounded" value="${item.id}">` : item.id;
-                const nameHTML = isAdmin ? `<textarea class="admin-name-input w-full text-[11px] leading-tight admin-edit-cell rounded p-1 h-12" oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'">${item.name}</textarea>` : `<div class="text-[11px] font-bold leading-tight">${item.name}</div>`;
-                const contentHTML = isAdmin ? `<textarea class="admin-content-input w-full text-[10px] leading-normal admin-edit-cell rounded p-1 h-12" oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'">${item.content}</textarea>` : `<div class="text-[10px] text-slate-500 leading-normal">${item.content}</div>`;
+                const idHTML = isAdmin ? `<input type="text" class="admin-id-input w-full bg-transparent text-center font-bold admin-edit-cell rounded" value="${item.id}" onblur="saveCurrentTabData()">` : item.id;
+                const nameHTML = isAdmin ? `<textarea class="admin-name-input w-full text-[11px] leading-tight admin-edit-cell rounded p-1 h-12" onblur="saveCurrentTabData()" oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'">${item.name}</textarea>` : `<div class="text-[11px] font-bold leading-tight">${item.name}</div>`;
+                const contentHTML = isAdmin ? `<textarea class="admin-content-input w-full text-[10px] leading-normal admin-edit-cell rounded p-1 h-12" onblur="saveCurrentTabData()" oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'">${item.content}</textarea>` : `<div class="text-[10px] text-slate-500 leading-normal">${item.content}</div>`;
 
                 row.innerHTML = `
                     <td class="px-2 py-4 text-[10px] font-bold text-slate-400 sticky-col-num border-b">${idHTML}</td>
                     <td class="px-4 py-4 sticky-col-name border-b">${nameHTML}</td>
                     <td class="px-4 py-4 border-l border-b bg-white group-hover:bg-slate-50/50">${contentHTML}</td>
                     <td class="px-1 py-2 border-l border-b bg-white group-hover:bg-slate-50/50">
-                        <input type="text" class="input-cell font-bold text-slate-400" value="${rowSaved[0] || item.schedule}" ${!isAdmin ? 'readonly' : ''} onkeydown="handleKeyDown(event, this)" onclick="this.select()">
+                        <input type="text" class="input-cell font-bold text-slate-400" value="${rowSaved[0] || item.schedule}" ${!isAdmin ? 'readonly' : ''} onkeydown="handleKeyDown(event, this)" onblur="if(isAdmin) saveCurrentTabData()" onclick="this.select()">
                     </td>
                     <td class="px-1 py-2 border-l border-b bg-white group-hover:bg-slate-50/50">
-                        <input type="text" class="input-cell font-black text-blue-600" value="${rowSaved[1] || item.target}" ${!isAdmin ? 'readonly' : ''} onkeydown="handleKeyDown(event, this)" onclick="this.select()">
+                        <input type="text" class="input-cell font-black text-blue-600" value="${rowSaved[1] || item.target}" ${!isAdmin ? 'readonly' : ''} onkeydown="handleKeyDown(event, this)" onblur="if(isAdmin) saveCurrentTabData()" onclick="this.select()">
                     </td>
                     ${monthCells}
                     <td class="${isAdmin ? '' : 'hidden'} px-2 py-2 border-l border-b text-center">
@@ -391,10 +428,9 @@
             lucide.createIcons();
         }
 
-        // 登入邏輯
         function openLoginModal() {
             if (isAdmin) {
-                if (confirm("目前處於編輯模式，是否要直接退出編輯（不儲存）？")) {
+                if (confirm("目前處於編輯模式，是否要直接退出編輯（資料已自動儲存）？")) {
                     isAdmin = false;
                     updateUIState();
                     renderTable(currentTab);
@@ -440,7 +476,6 @@
 
         function saveAndLogout() {
             saveCurrentTabData();
-            persistToStorage();
             isAdmin = false;
             updateUIState();
             renderTable(currentTab);
@@ -455,23 +490,43 @@
             saveCurrentTabData();
             appData[currentTab].push({ id: (appData[currentTab].length + 1).toString(), name: "新項目", content: "請輸入內容", schedule: "月", target: "100%" });
             renderTable(currentTab);
+            saveCurrentTabData(); // 新增後立刻保存狀態
         }
 
-        function deleteRow(idx) { if (confirm("確定要刪除此項嗎？")) { saveCurrentTabData(); appData[currentTab].splice(idx, 1); renderTable(currentTab); } }
+        function deleteRow(idx) { if (confirm("確定要刪除此項嗎？")) { saveCurrentTabData(); appData[currentTab].splice(idx, 1); renderTable(currentTab); saveCurrentTabData(); } }
+
+        function handleYearKeydown(e, input) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleYearFormat(input);
+                input.blur();
+            }
+        }
 
         function handleYearFormat(input) {
             let val = input.value.trim();
+            if (val === "") return;
+
             let match = val.match(/\d+/);
             if (match) {
                 let year = parseInt(match[0]);
-                if (year > 1911) input.value = `${year}年度 (${year - 1911}年)`;
-                else input.value = `${year + 1911}年度 (${year}年)`;
+                if (year > 1911) {
+                    input.value = `${year}年度 (${year - 1911}年)`;
+                } else {
+                    input.value = `${year + 1911}年度 (${year}年)`;
+                }
+            }
+            if (isAdmin) {
+                saveCurrentTabData();
             }
         }
 
         function appendPercentage(input) {
             let val = input.value.trim();
-            if (val !== "" && val !== "-" && !isNaN(val)) { input.value = val + "%"; formatInput(input); }
+            if (val !== "" && val !== "-" && !isNaN(val)) { 
+                input.value = val + "%"; 
+                formatInput(input); 
+            }
         }
 
         function formatInput(input) {
@@ -490,9 +545,6 @@
             }
         }
 
-        /**
-         * 核心：鍵盤上下左右導覽功能
-         */
         function handleKeyDown(e, input) {
             const cell = input.parentElement;
             const row = cell.parentElement;
@@ -501,13 +553,13 @@
             const rIdx = rows.indexOf(row);
             const cIdx = cells.indexOf(cell);
 
-            // 處理上下左右導覽
             if (e.key === "Enter" || e.key === "ArrowDown") {
                 e.preventDefault();
                 if (rIdx < rows.length - 1) {
                     const nextInput = rows[rIdx + 1].cells[cIdx].querySelector('input');
                     if (nextInput) { nextInput.focus(); nextInput.select(); }
                 }
+                if(isAdmin) saveCurrentTabData(); // 按下 Enter 時觸發儲存
             }
             else if (e.key === "ArrowUp") {
                 e.preventDefault();
@@ -517,7 +569,6 @@
                 }
             }
             else if (e.key === "ArrowRight") {
-                // 如果游標在末尾，才跳到下一格 (或直接跳轉)
                 if (input.selectionEnd === input.value.length) {
                     if (cIdx < cells.length - 1) {
                         const nextCellInput = cells[cIdx + 1].querySelector('input');
@@ -526,7 +577,6 @@
                 }
             }
             else if (e.key === "ArrowLeft") {
-                // 如果游標在開頭，才跳到前一格 (或直接跳轉)
                 if (input.selectionStart === 0) {
                     if (cIdx > 0) {
                         const prevCellInput = cells[cIdx - 1].querySelector('input');
