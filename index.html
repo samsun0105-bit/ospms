@@ -81,6 +81,13 @@
         .attachment-btn.no-file { color: #d1d5db; opacity: 0.4; }
         .attachment-btn:hover { opacity: 1; transform: scale(1.2); }
 
+        /* 拖曳上傳樣式 */
+        #upload-status-box.drag-over {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            transform: scale(1.02);
+        }
+
         @media print {
             @page { size: A4 landscape; margin: 0.5cm; }
             .no-print { display: none !important; }
@@ -268,18 +275,18 @@
                 </div>
             </div>
             <div class="mb-8">
-                <label class="text-[12px] font-bold text-slate-400 mb-2 block">連結電腦 PDF 或 PNG 檔案</label>
+                <label class="text-[12px] font-bold text-slate-400 mb-2 block">連結電腦 PDF / PNG / JPG 檔案 (支援拖曳)</label>
                 <div class="flex items-center space-x-3">
                     <div id="upload-status-box" onclick="document.getElementById('file-input').click()" 
-                         class="flex-1 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl py-5 px-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-blue-50 transition group">
+                         class="flex-1 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl py-5 px-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-blue-50 transition group transition-all duration-200">
                         <i id="upload-icon-status" data-lucide="cloud-upload" class="w-5 h-5 text-blue-500"></i>
-                        <span id="upload-text-status" class="text-blue-600 font-bold text-sm">點擊上傳檔案</span>
+                        <span id="upload-text-status" class="text-blue-600 font-bold text-sm">點擊或拖曳檔案至此</span>
                     </div>
                     <button onclick="viewCurrentFile()" id="view-file-btn" class="hidden h-[60px] w-[60px] flex items-center justify-center bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 transition">
                         <i data-lucide="external-link" class="w-6 h-6"></i>
                     </button>
                 </div>
-                <input type="file" id="file-input" class="hidden" accept=".pdf,.png" onchange="handleFileUpload(this)">
+                <input type="file" id="file-input" class="hidden" accept=".pdf,.png,.jpg,.jpeg" onchange="handleFileUpload(this)">
             </div>
             <hr class="border-slate-100 mb-6">
             <div class="mb-8">
@@ -314,7 +321,7 @@
                 { id: "9", name: "消防防護計畫", content: "製定消防防護計畫，報請消防機關核備。", schedule: "月", target: "100%" },
                 { id: "10", name: "自動檢查計畫", content: "定期更新新安全衛生自動檢查計畫。", schedule: "月", target: "100%" },
                 { id: "11", name: "作業安全管理", content: "高風險作業現場安全查核符合率%。", schedule: "月", target: "100%" },
-                { id: "12", name: "變更管理風險評估", content: "MOC 風險評估完成率%。", schedule: "適時", target: "100%" },
+                { id: "12", name: "變更管理風險評估", content: "MOC 風際評估完成率%。", schedule: "適時", target: "100%" },
                 { id: "13", name: "安衛自動檢查檢核符合率", content: "安衛自動檢查檢核符合率 = 累積合格單位數/受檢單位數x100%", schedule: "適時", target: "90%" },
                 { id: "14", name: "定期實施一般健康檢查", content: "依法定年齡區間定期實施一般健康檢查。", schedule: "年", target: "100%" },
                 { id: "15", name: "特殊作業人員檢查計畫", content: "每年實施特殊健康檢查。", schedule: "年", target: "100%" },
@@ -571,30 +578,73 @@
             const statusText = document.getElementById('upload-text-status');
             const viewBtn = document.getElementById('view-file-btn');
             const deleteSingleBtn = document.getElementById('delete-single-attachment-btn');
+            
+            // 初始化拖曳區域
+            initDragAndDrop(statusBox);
+
             modal.classList.remove('hidden');
             const existing = attachmentsStore[currentTab] && attachmentsStore[currentTab][rowIndex] && attachmentsStore[currentTab][rowIndex][monthIndex];
             if (existing) {
                 statusBox.classList.replace('border-blue-200', 'border-blue-400'); statusBox.classList.add('bg-blue-50');
-                statusIcon.setAttribute('data-lucide', 'check-circle'); statusText.innerText = "檔案已就緒 (點擊更換)";
+                statusIcon.setAttribute('data-lucide', 'check-circle'); statusText.innerText = "檔案已就緒 (點擊或拖曳更換)";
                 viewBtn.classList.remove('hidden'); deleteSingleBtn.classList.remove('hidden');
             } else {
                 statusBox.classList.replace('border-blue-400', 'border-blue-200'); statusBox.classList.remove('bg-blue-50');
-                statusIcon.setAttribute('data-lucide', 'cloud-upload'); statusText.innerText = "點擊上傳檔案";
+                statusIcon.setAttribute('data-lucide', 'cloud-upload'); statusText.innerText = "點擊或拖曳檔案至此";
                 viewBtn.classList.add('hidden'); deleteSingleBtn.classList.add('hidden');
             }
             lucide.createIcons();
+        }
+
+        // 拖曳上傳邏輯
+        function initDragAndDrop(area) {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                area.addEventListener(eventName, preventDefaults, false);
+            });
+            function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                area.addEventListener(eventName, () => area.classList.add('drag-over'), false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                area.addEventListener(eventName, () => area.classList.remove('drag-over'), false);
+            });
+
+            area.addEventListener('drop', handleDrop, false);
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                const file = files[0];
+                const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+                if (validTypes.includes(file.type)) {
+                    processFile(file);
+                } else {
+                    alert("不支援此檔案格式。請上傳 PDF, PNG 或 JPG 檔案。");
+                }
+            }
         }
 
         function closeAttachmentModal() { document.getElementById('attachment-modal').classList.add('hidden'); document.getElementById('file-input').value = ''; activeAttachmentTarget = null; }
 
         function handleFileUpload(input) {
             const file = input.files[0]; if (!file) return;
+            processFile(file);
+        }
+
+        function processFile(file) {
             if (file.size > 5 * 1024 * 1024) { alert("檔案太大，請限制在 5MB 以內"); return; }
             const reader = new FileReader();
             reader.onload = function(e) {
                 if (!attachmentsStore[currentTab]) attachmentsStore[currentTab] = {};
                 if (!attachmentsStore[currentTab][activeAttachmentTarget.row]) attachmentsStore[currentTab][activeAttachmentTarget.row] = {};
-                attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month] = { name: file.name, type: file.type, data: e.target.result };
+                attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month] = { 
+                    name: file.name, 
+                    type: file.type, 
+                    data: e.target.result 
+                };
                 persistToStorage(); renderTable(currentTab); openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
             };
             reader.readAsDataURL(file);
@@ -678,7 +728,7 @@
             const badge = document.getElementById('admin-badge');
             if (isAdmin) {
                 authIcon.setAttribute('data-lucide', 'unlock');
-                authIcon.classList.replace('text-slate-500', 'text-orange-500'); // 改為橘色
+                authIcon.classList.replace('text-slate-500', 'text-orange-500');
                 badge.classList.remove('hidden');
             } else {
                 authIcon.setAttribute('data-lucide', 'lock');
@@ -751,7 +801,6 @@
                 e.preventDefault(); 
                 if (rIdx > 0) rows[rIdx - 1].cells[cIdx].querySelector('input')?.focus();
             } else if (e.key === "ArrowRight") {
-                // 如果游標已經在最後面，或者按的是右鍵，則移動到下一個輸入框
                 if (input.selectionStart === input.value.length) {
                     if (cIdx < cells.length - 1) {
                         const nextInput = cells[cIdx + 1].querySelector('input');
@@ -759,7 +808,6 @@
                     }
                 }
             } else if (e.key === "ArrowLeft") {
-                // 如果游標已經在最前面，或者按的是左鍵，則移動到前一個輸入框
                 if (input.selectionStart === 0) {
                     if (cIdx > 0) {
                         const prevInput = cells[cIdx - 1].querySelector('input');
