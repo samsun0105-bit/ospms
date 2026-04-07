@@ -81,7 +81,6 @@
         .attachment-btn.no-file { color: #d1d5db; opacity: 0.4; }
         .attachment-btn:hover { opacity: 1; transform: scale(1.2); }
 
-        /* 拖曳狀態樣式 */
         #upload-status-box.drag-over {
             border-color: #3b82f6;
             background-color: #eff6ff;
@@ -277,7 +276,6 @@
             <div class="mb-8">
                 <label class="text-[12px] font-bold text-slate-400 mb-2 block">連結電腦 PDF / PNG / JPG 檔案</label>
                 <div class="flex items-center space-x-3">
-                    <!-- 修改：增加拖曳支援的容器 -->
                     <div id="upload-status-box" 
                          onclick="document.getElementById('file-input').click()"
                          class="flex-1 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl py-5 px-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-blue-50 transition group relative">
@@ -288,7 +286,6 @@
                         <i data-lucide="external-link" class="w-6 h-6"></i>
                     </button>
                 </div>
-                <!-- 修改：accept 增加 .jpg 與 .jpeg -->
                 <input type="file" id="file-input" class="hidden" accept=".pdf,.png,.jpg,.jpeg" onchange="handleFileUpload(this)">
             </div>
             <hr class="border-slate-100 mb-6">
@@ -430,7 +427,7 @@
 
                 initNav(); 
                 switchTab('plan');
-                initDragAndDrop(); // 初始化拖曳功能
+                initDragAndDrop();
             } catch (err) {
                 console.error("Load Error:", err);
                 initNav(); 
@@ -584,7 +581,7 @@
                     monthCells += `<td class="px-1 py-2 border-l border-b relative">
                         <input type="text" class="input-cell" placeholder="-" value="${val}"
                                ${!isAdmin ? 'disabled' : ''}
-                               onchange="formatInput(this)" onblur="appendPercentage(this)"
+                               onchange="handleInputChange(this)" onblur="appendPercentage(this)"
                                onkeydown="handleKeyDown(event, this)">
                         <span class="attachment-btn ${btnClass}" onclick="handleAttachmentClick(${rowIndex}, ${i})">
                             <i data-lucide="link"></i>
@@ -649,7 +646,6 @@
 
         function closeAttachmentModal() { document.getElementById('attachment-modal').classList.add('hidden'); document.getElementById('file-input').value = ''; activeAttachmentTarget = null; }
 
-        // --- 新增：初始化拖曳功能 ---
         function initDragAndDrop() {
             const dropZone = document.getElementById('upload-status-box');
             
@@ -679,10 +675,8 @@
             }, false);
         }
 
-        // 修改：抽離檔案處理邏輯以便拖曳與點擊共用
         function processFile(file) {
             if (!file) return;
-            // 限制支援格式
             const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
             if (!allowedTypes.includes(file.type)) {
                 alert("不支援此檔案格式！僅限 PDF, PNG, JPG");
@@ -703,7 +697,8 @@
                     type: file.type, 
                     data: e.target.result 
                 };
-                await persistToStorage(); 
+                saveCurrentTabData(); // 保存表格數據
+                await persistToStorage(); // 保存至 IndexedDB
                 renderTable(currentTab); 
                 openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
             };
@@ -730,6 +725,7 @@
             if (attachmentsStore[currentTab] && attachmentsStore[currentTab][activeAttachmentTarget.row]) {
                 delete attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month];
                 if (Object.keys(attachmentsStore[currentTab][activeAttachmentTarget.row]).length === 0) delete attachmentsStore[currentTab][activeAttachmentTarget.row];
+                saveCurrentTabData();
                 await persistToStorage(); 
                 renderTable(currentTab); 
                 openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
@@ -743,6 +739,7 @@
             if (!attachmentsStore[currentTab]) attachmentsStore[currentTab] = {};
             if (!attachmentsStore[currentTab][activeAttachmentTarget.row]) attachmentsStore[currentTab][activeAttachmentTarget.row] = {};
             for (let i = 1; i <= 12; i++) { attachmentsStore[currentTab][activeAttachmentTarget.row][i] = { ...file }; }
+            saveCurrentTabData();
             await persistToStorage(); 
             renderTable(currentTab); 
             alert("已成功套用到全年度");
@@ -752,6 +749,7 @@
             if (!confirm("確定清除此績效指標「全年度」的所有附件檔案？")) return;
             if (attachmentsStore[currentTab] && attachmentsStore[currentTab][activeAttachmentTarget.row]) {
                 delete attachmentsStore[currentTab][activeAttachmentTarget.row];
+                saveCurrentTabData();
                 await persistToStorage(); 
                 renderTable(currentTab);
                 if (activeAttachmentTarget) openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
@@ -846,13 +844,27 @@
 
         function appendPercentage(input) {
             let v = input.value.trim();
-            if (v !== "" && v !== "-" && !isNaN(v)) { input.value = v + "%"; formatInput(input); }
+            if (v !== "" && v !== "-" && v !== "N/A" && !isNaN(v)) { 
+                input.value = v + "%"; 
+                formatInput(input); 
+            }
+        }
+
+        // 新增：處理輸入內容
+        function handleInputChange(input) {
+            let val = input.value.trim();
+            // 當輸入為 N 或 n 時，自動帶入 N/A
+            if (val.toUpperCase() === 'N') {
+                input.value = 'N/A';
+            }
+            formatInput(input);
         }
 
         function formatInput(input) {
             let val = input.value.trim().toUpperCase();
             let num = parseFloat(val);
             if (val === "" || val === "-") { input.style.color = '#94a3b8'; return; }
+            if (val === "N/A") { input.style.color = '#94a3b8'; return; } // N/A 顏色設定
             if (val.includes('合格') || val === 'OK') { input.style.color = '#059669'; return; }
             if (!isNaN(num)) {
                 if (num <= 30) input.style.color = '#ef4444';
