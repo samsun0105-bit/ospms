@@ -81,6 +81,13 @@
         .attachment-btn.no-file { color: #d1d5db; opacity: 0.4; }
         .attachment-btn:hover { opacity: 1; transform: scale(1.2); }
 
+        /* 拖曳狀態樣式 */
+        #upload-status-box.drag-over {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            transform: scale(1.02);
+        }
+
         @media print {
             @page { size: A4 landscape; margin: 0.5cm; }
             .no-print { display: none !important; }
@@ -268,18 +275,21 @@
                 </div>
             </div>
             <div class="mb-8">
-                <label class="text-[12px] font-bold text-slate-400 mb-2 block">連結電腦 PDF 或 PNG 檔案</label>
+                <label class="text-[12px] font-bold text-slate-400 mb-2 block">連結電腦 PDF / PNG / JPG 檔案</label>
                 <div class="flex items-center space-x-3">
-                    <div id="upload-status-box" onclick="document.getElementById('file-input').click()" 
-                         class="flex-1 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl py-5 px-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-blue-50 transition group">
+                    <!-- 修改：增加拖曳支援的容器 -->
+                    <div id="upload-status-box" 
+                         onclick="document.getElementById('file-input').click()"
+                         class="flex-1 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl py-5 px-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-blue-50 transition group relative">
                         <i id="upload-icon-status" data-lucide="cloud-upload" class="w-5 h-5 text-blue-500"></i>
-                        <span id="upload-text-status" class="text-blue-600 font-bold text-sm">點擊上傳檔案</span>
+                        <span id="upload-text-status" class="text-blue-600 font-bold text-sm">點擊或拖移檔案至此</span>
                     </div>
                     <button onclick="viewCurrentFile()" id="view-file-btn" class="hidden h-[60px] w-[60px] flex items-center justify-center bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 transition">
                         <i data-lucide="external-link" class="w-6 h-6"></i>
                     </button>
                 </div>
-                <input type="file" id="file-input" class="hidden" accept=".pdf,.png" onchange="handleFileUpload(this)">
+                <!-- 修改：accept 增加 .jpg 與 .jpeg -->
+                <input type="file" id="file-input" class="hidden" accept=".pdf,.png,.jpg,.jpeg" onchange="handleFileUpload(this)">
             </div>
             <hr class="border-slate-100 mb-6">
             <div class="mb-8">
@@ -314,7 +324,7 @@
                 { id: "9", name: "消防防護計畫", content: "製定消防防護計畫，報請消防機關核備。", schedule: "月", target: "100%" },
                 { id: "10", name: "自動檢查計畫", content: "定期更新新安全衛生自動檢查計畫。", schedule: "月", target: "100%" },
                 { id: "11", name: "作業安全管理", content: "高風險作業現場安全查核符合率%。", schedule: "月", target: "100%" },
-                { id: "12", name: "變更管理風險評估", content: "MOC 風險評估完成率%。", schedule: "適時", target: "100%" },
+                { id: "12", name: "變更管理風險評估", content: "MOC 風階評估完成率%。", schedule: "適時", target: "100%" },
                 { id: "13", name: "安衛自動檢查檢核符合率", content: "安衛自動檢查檢核符合率 = 累積合格單位數/受檢單位數x100%", schedule: "適時", target: "90%" },
                 { id: "14", name: "定期實施一般健康檢查", content: "依法定年齡區間定期實施一般健康檢查。", schedule: "年", target: "100%" },
                 { id: "15", name: "特殊作業人員檢查計畫", content: "每年實施特殊健康檢查。", schedule: "年", target: "100%" },
@@ -402,7 +412,6 @@
                 const transaction = db.transaction(STORE_KEY, "readonly");
                 const store = transaction.objectStore(STORE_KEY);
                 
-                // 讀取所有數據項
                 const getRequest = (key) => new Promise((res) => {
                     const req = store.get(key);
                     req.onsuccess = () => res(req.result);
@@ -419,9 +428,9 @@
                     Object.keys(savedBaseData).forEach(k => { if(appData[k]) appData[k] = savedBaseData[k]; });
                 }
 
-                // 初始化頁面
                 initNav(); 
                 switchTab('plan');
+                initDragAndDrop(); // 初始化拖曳功能
             } catch (err) {
                 console.error("Load Error:", err);
                 initNav(); 
@@ -628,11 +637,11 @@
             const existing = attachmentsStore[currentTab] && attachmentsStore[currentTab][rowIndex] && attachmentsStore[currentTab][rowIndex][monthIndex];
             if (existing) {
                 statusBox.classList.replace('border-blue-200', 'border-blue-400'); statusBox.classList.add('bg-blue-50');
-                statusIcon.setAttribute('data-lucide', 'check-circle'); statusText.innerText = "檔案已就緒 (點擊更換)";
+                statusIcon.setAttribute('data-lucide', 'check-circle'); statusText.innerText = "檔案已就緒 (可再拖移更換)";
                 viewBtn.classList.remove('hidden'); deleteSingleBtn.classList.remove('hidden');
             } else {
                 statusBox.classList.replace('border-blue-400', 'border-blue-200'); statusBox.classList.remove('bg-blue-50');
-                statusIcon.setAttribute('data-lucide', 'cloud-upload'); statusText.innerText = "點擊上傳檔案";
+                statusIcon.setAttribute('data-lucide', 'cloud-upload'); statusText.innerText = "點擊或拖移檔案至此";
                 viewBtn.classList.add('hidden'); deleteSingleBtn.classList.add('hidden');
             }
             lucide.createIcons();
@@ -640,15 +649,60 @@
 
         function closeAttachmentModal() { document.getElementById('attachment-modal').classList.add('hidden'); document.getElementById('file-input').value = ''; activeAttachmentTarget = null; }
 
-        function handleFileUpload(input) {
-            const file = input.files[0]; if (!file) return;
-            // 由於 IndexedDB 容量較大，我們將限制放寬到 10MB，或根據需求調整
-            if (file.size > 10 * 1024 * 1024) { alert("檔案太大，IndexedDB 雖然支援，但建議單個檔案限制在 10MB 以內以利導出。"); return; }
+        // --- 新增：初始化拖曳功能 ---
+        function initDragAndDrop() {
+            const dropZone = document.getElementById('upload-status-box');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    processFile(files[0]);
+                }
+            }, false);
+        }
+
+        // 修改：抽離檔案處理邏輯以便拖曳與點擊共用
+        function processFile(file) {
+            if (!file) return;
+            // 限制支援格式
+            const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+            if (!allowedTypes.includes(file.type)) {
+                alert("不支援此檔案格式！僅限 PDF, PNG, JPG");
+                return;
+            }
+            
+            if (file.size > 10 * 1024 * 1024) { 
+                alert("檔案太大，建議單個檔案限制在 10MB 以內。"); 
+                return; 
+            }
+            
             const reader = new FileReader();
             reader.onload = async function(e) {
                 if (!attachmentsStore[currentTab]) attachmentsStore[currentTab] = {};
                 if (!attachmentsStore[currentTab][activeAttachmentTarget.row]) attachmentsStore[currentTab][activeAttachmentTarget.row] = {};
-                attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month] = { name: file.name, type: file.type, data: e.target.result };
+                attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month] = { 
+                    name: file.name, 
+                    type: file.type, 
+                    data: e.target.result 
+                };
                 await persistToStorage(); 
                 renderTable(currentTab); 
                 openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
@@ -656,10 +710,17 @@
             reader.readAsDataURL(file);
         }
 
+        function handleFileUpload(input) {
+            processFile(input.files[0]);
+        }
+
         function viewFileDirectly(file) {
             const newWindow = window.open();
-            if (file.type === 'application/pdf') { newWindow.document.write(`<iframe src="${file.data}" frameborder="0" style="position:fixed; top:0; left:0; width:100%; height:100%;" allowfullscreen></iframe>`); } 
-            else { newWindow.document.write(`<div style="background:#f1f5f9; min-height:100vh; display:flex; justify-content:center; align-items:center;"><img src="${file.data}" style="max-width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);"></div>`); }
+            if (file.type === 'application/pdf') { 
+                newWindow.document.write(`<iframe src="${file.data}" frameborder="0" style="position:fixed; top:0; left:0; width:100%; height:100%;" allowfullscreen></iframe>`); 
+            } else { 
+                newWindow.document.write(`<div style="background:#f1f5f9; min-height:100vh; display:flex; justify-content:center; align-items:center;"><img src="${file.data}" style="max-width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);"></div>`); 
+            }
         }
 
         function viewCurrentFile() { const file = attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month]; if (file) viewFileDirectly(file); }
@@ -833,7 +894,6 @@
             }
         }
 
-        // 使用 async 載入流程
         window.onload = () => { loadFromStorage(); };
     </script>
 </body>
