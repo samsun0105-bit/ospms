@@ -6,7 +6,6 @@
     <title>職業安全績效管理系統 (OSPMS)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- 引入 Excel 匯出庫 -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
@@ -41,10 +40,7 @@
             transition: all 0.2s;
             background: transparent;
         }
-        .input-cell:disabled {
-            cursor: not-allowed;
-            opacity: 0.8;
-        }
+        .input-cell:disabled { cursor: not-allowed; opacity: 0.8; }
         .input-cell:not(:disabled):hover { border-color: #cbd5e1; background: #fff; }
         .input-cell:not(:disabled):focus { border-color: #3b82f6; background: #fff; outline: none; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
 
@@ -63,6 +59,28 @@
             cursor: pointer;
         }
 
+        .attachment-btn {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+        }
+        .attachment-btn i { 
+            width: 10px; 
+            height: 10px; 
+            stroke-width: 2.5px; 
+        }
+        .attachment-btn.has-file { color: #3b82f6; opacity: 1; }
+        .attachment-btn.no-file { color: #d1d5db; opacity: 0.4; }
+        .attachment-btn:hover { opacity: 1; transform: scale(1.2); }
+
         @media print {
             @page { size: A4 landscape; margin: 0.5cm; }
             .no-print { display: none !important; }
@@ -71,6 +89,7 @@
             table { table-layout: fixed; width: 100% !important; font-size: 9px !important; }
             .sticky-col-num, .sticky-col-name { position: static !important; background: white !important; }
             th, td { padding: 4px 2px !important; border: 1px solid #e2e8f0 !important; }
+            .attachment-btn { display: none; }
         }
     </style>
 </head>
@@ -88,7 +107,6 @@
                         <p class="text-[8px] text-blue-400 font-bold uppercase tracking-tighter mt-1">Occupational Safety Performance Management System</p>
                     </div>
                 </div>
-                <!-- 鎖頭按鈕：用於切換登入/登出 -->
                 <button id="admin-toggle-btn" onclick="handleAuthClick()" class="text-slate-500 hover:text-white transition-colors">
                     <i data-lucide="lock" class="w-5 h-5" id="auth-icon"></i>
                 </button>
@@ -155,18 +173,18 @@
                             <th class="px-4 py-4 min-w-[250px] border-b border-l">計算方式</th>
                             <th class="px-2 py-4 text-center min-w-[60px] border-b border-l">時程規劃</th>
                             <th class="px-2 py-4 text-center min-w-[60px] border-b border-l">目標值</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">1月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">2月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">3月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">4月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">5月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">6月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">7月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">8月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">9月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">10月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">11月</th>
-                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[50px]">12月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">1月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">2月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">3月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">4月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">5月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">6月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">7月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">8月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">9月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">10月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">11月</th>
+                            <th class="px-1 py-4 text-center border-b border-l bg-blue-50/30 text-blue-600 min-w-[65px]">12月</th>
                             <th id="admin-header-action" class="hidden px-2 py-4 text-center border-b border-l text-red-500">操作</th>
                         </tr>
                     </thead>
@@ -182,11 +200,10 @@
         </div>
     </main>
 
-    <!-- 管理員驗證與修改密碼彈窗 -->
+    <!-- 管理員驗證彈窗 -->
     <div id="login-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div class="p-8">
-                <!-- 登入介面 -->
                 <div id="login-view">
                     <div class="flex flex-col items-center text-center mb-6">
                         <div class="bg-slate-100 p-3 rounded-full mb-4">
@@ -209,7 +226,6 @@
                     </div>
                 </div>
 
-                <!-- 修改密碼介面 -->
                 <div id="change-pwd-view" class="hidden">
                     <div class="flex flex-col items-center text-center mb-6">
                         <div class="bg-yellow-50 p-3 rounded-full mb-4">
@@ -232,8 +248,60 @@
         </div>
     </div>
 
+    <!-- 附件管理彈窗 -->
+    <div id="attachment-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-[440px] rounded-[2.5rem] shadow-2xl overflow-hidden p-8 relative animate-in fade-in zoom-in duration-200">
+            <button onclick="closeAttachmentModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+            <div class="flex items-center space-x-3 mb-6">
+                <i data-lucide="link" class="w-6 h-6 text-blue-600 rotate-45"></i>
+                <h3 class="text-xl font-bold text-slate-800 tracking-tight">附件與快速填充</h3>
+            </div>
+            <div class="mb-6">
+                <label class="text-[12px] font-bold text-slate-400 mb-2 block">目前選擇</label>
+                <div class="bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 flex justify-between items-center">
+                    <span id="target-label-display" class="text-slate-700 font-medium">載入中...</span>
+                    <button id="delete-single-attachment-btn" onclick="deleteSingleAttachment()" class="hidden text-red-400 hover:text-red-600 transition p-1" title="刪除此筆附件">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mb-8">
+                <label class="text-[12px] font-bold text-slate-400 mb-2 block">連結電腦 PDF 或 PNG 檔案</label>
+                <div class="flex items-center space-x-3">
+                    <div id="upload-status-box" onclick="document.getElementById('file-input').click()" 
+                         class="flex-1 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl py-5 px-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-blue-50 transition group">
+                        <i id="upload-icon-status" data-lucide="cloud-upload" class="w-5 h-5 text-blue-500"></i>
+                        <span id="upload-text-status" class="text-blue-600 font-bold text-sm">點擊上傳檔案</span>
+                    </div>
+                    <button onclick="viewCurrentFile()" id="view-file-btn" class="hidden h-[60px] w-[60px] flex items-center justify-center bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 transition">
+                        <i data-lucide="external-link" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <input type="file" id="file-input" class="hidden" accept=".pdf,.png" onchange="handleFileUpload(this)">
+            </div>
+            <hr class="border-slate-100 mb-6">
+            <div class="mb-8">
+                <label class="text-[12px] font-bold text-slate-400 mb-3 block">快速大量填充 (批次操作)</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="batchApplyToFile()" class="bg-[#1e293b] text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-slate-700 transition">
+                        將此檔案套用全年度
+                    </button>
+                    <button onclick="batchClearRowAttachments()" class="bg-[#fff1f2] text-[#f43f5e] py-3.5 rounded-xl text-[13px] font-bold hover:bg-red-100 transition border border-red-50">
+                        清除此指標所有附件
+                    </button>
+                </div>
+            </div>
+            <button onclick="closeAttachmentModal()" class="w-full py-4 bg-[#2563eb] text-white rounded-[1.2rem] font-bold text-base shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition">
+                完成並關閉
+            </button>
+        </div>
+    </div>
+
     <script>
-        const appData = {
+        // 初始數據定義
+        let appData = {
             plan: [
                 { id: "1", name: "工作場所巡視結果符合率", content: "巡視結果符合率% =〔1-(缺點件數 / 總件數) 〕x100%", schedule: "適時", target: "90%" },
                 { id: "2", name: "職業安全衛生教育訓練", content: "新進人員到職後實施實施3小時安全衛生教育訓練", schedule: "適時", target: "100%" },
@@ -304,12 +372,17 @@
         const icons = { plan: "clipboard-list", iso: "award", protect: "user-check", passive: "activity", monitor: "gauge" };
 
         let currentTab = 'plan';
-        let tableDataStore = {};
+        let tableDataStore = {}; 
+        let attachmentsStore = {}; 
         let isAdmin = false;
+        let activeAttachmentTarget = null; 
 
+        // 持久化
         function loadFromStorage() {
             const saved = localStorage.getItem('ospms_data_store');
             if (saved) tableDataStore = JSON.parse(saved);
+            const savedAttach = localStorage.getItem('ospms_attachments');
+            if (savedAttach) attachmentsStore = JSON.parse(savedAttach);
             const savedBaseData = localStorage.getItem('ospms_base_data');
             if (savedBaseData) {
                 const parsed = JSON.parse(savedBaseData);
@@ -319,15 +392,12 @@
 
         function persistToStorage() {
             localStorage.setItem('ospms_data_store', JSON.stringify(tableDataStore));
+            localStorage.setItem('ospms_attachments', JSON.stringify(attachmentsStore));
             localStorage.setItem('ospms_base_data', JSON.stringify(appData));
         }
 
         function exportJSON() {
-            const dataToExport = {
-                data_store: JSON.parse(localStorage.getItem('ospms_data_store') || "{}"),
-                base_data: JSON.parse(localStorage.getItem('ospms_base_data') || JSON.stringify(appData)),
-                export_date: new Date().toLocaleString()
-            };
+            const dataToExport = { data_store: tableDataStore, attachments: attachmentsStore, base_data: appData, export_date: new Date().toLocaleString() };
             const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -343,8 +413,10 @@
             reader.onload = (e) => {
                 try {
                     const imported = JSON.parse(e.target.result);
-                    localStorage.setItem('ospms_data_store', JSON.stringify(imported.data_store));
-                    localStorage.setItem('ospms_base_data', JSON.stringify(imported.base_data));
+                    tableDataStore = imported.data_store || {};
+                    attachmentsStore = imported.attachments || {};
+                    appData = imported.base_data || appData;
+                    persistToStorage();
                     window.location.reload();
                 } catch (err) { alert("檔案格式錯誤！"); }
             };
@@ -355,7 +427,6 @@
             try {
                 const wb = XLSX.utils.book_new();
                 const yearLabel = document.getElementById('year-input-field').value;
-
                 Object.keys(titles).forEach(key => {
                     const sheetName = titles[key].substring(0, 31);
                     const baseInfo = appData[key];
@@ -369,14 +440,10 @@
                         rows.push(excelRow);
                     });
                     const ws = XLSX.utils.aoa_to_sheet(rows);
-                    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 40 }, { wch: 10 }, { wch: 10 }, ...Array(12).fill({ wch: 6 })];
                     XLSX.utils.book_append_sheet(wb, ws, sheetName);
                 });
-                XLSX.writeFile(wb, `OSPMS_${yearLabel.replace(/[\s\(\)]/g, '')}_全年度績效報表.xlsx`);
-            } catch (error) {
-                console.error("Excel Export Error:", error);
-                alert("匯出 Excel 失敗，請確認是否有異常數據。");
-            }
+                XLSX.writeFile(wb, `OSPMS_${yearLabel}_全年度績效報表.xlsx`);
+            } catch (error) { alert("匯出 Excel 失敗"); }
         }
 
         function initNav() {
@@ -436,27 +503,30 @@
             const saveBtn = document.getElementById('save-logout-btn');
 
             if (isAdmin) { 
-                headerAction.classList.remove('hidden'); 
-                adminSection.classList.remove('hidden'); 
-                saveBtn.classList.remove('hidden');
+                headerAction.classList.remove('hidden'); adminSection.classList.remove('hidden'); saveBtn.classList.remove('hidden');
             } else { 
-                headerAction.classList.add('hidden'); 
-                adminSection.classList.add('hidden'); 
-                saveBtn.classList.add('hidden');
+                headerAction.classList.add('hidden'); adminSection.classList.add('hidden'); saveBtn.classList.add('hidden');
             }
 
             appData[type].forEach((item, rowIndex) => {
                 const row = document.createElement('tr');
                 row.className = "hover:bg-slate-50/50 group transition-colors";
                 const rowSaved = savedData[rowIndex] || [];
+                
                 let monthCells = "";
                 for (let i = 1; i <= 12; i++) {
                     const val = rowSaved[i+1] !== undefined ? rowSaved[i+1] : "";
-                    monthCells += `<td class="px-1 py-2 border-l border-b">
+                    const hasAttach = attachmentsStore[type] && attachmentsStore[type][rowIndex] && attachmentsStore[type][rowIndex][i];
+                    const btnClass = hasAttach ? 'has-file' : 'no-file';
+
+                    monthCells += `<td class="px-1 py-2 border-l border-b relative">
                         <input type="text" class="input-cell" placeholder="-" value="${val}"
                                ${!isAdmin ? 'disabled' : ''}
                                onchange="formatInput(this)" onblur="appendPercentage(this)"
                                onkeydown="handleKeyDown(event, this)">
+                        <span class="attachment-btn ${btnClass}" onclick="handleAttachmentClick(${rowIndex}, ${i})">
+                            <i data-lucide="link"></i>
+                        </span>
                     </td>`;
                 }
 
@@ -485,78 +555,122 @@
             lucide.createIcons();
         }
 
-        function autoResize(textarea) {
-            textarea.style.height = 'auto';
-            textarea.style.height = textarea.scrollHeight + 'px';
+        // 附件功能
+        function handleAttachmentClick(rowIndex, monthIndex) {
+            if (isAdmin) { openAttachmentModal(rowIndex, monthIndex); } 
+            else { const file = attachmentsStore[currentTab]?.[rowIndex]?.[monthIndex]; if (file) viewFileDirectly(file); }
         }
 
-        function handleAuthClick() {
-            if (isAdmin) {
-                if (confirm("是否退出管理員編輯模式？")) { isAdmin = false; updateUIState(); renderTable(currentTab); }
-            } else { openLoginModal(); }
-        }
-
-        function openLoginModal() {
-            document.getElementById('login-modal').classList.remove('hidden');
-            togglePasswordView(false);
-            document.getElementById('login-password').focus();
-        }
-
-        function closeLoginModal() { 
-            document.getElementById('login-modal').classList.add('hidden'); 
-            document.getElementById('login-password').value = ''; 
-            document.getElementById('login-error').classList.add('hidden'); 
-        }
-
-        function togglePasswordView(showChange) {
-            const loginView = document.getElementById('login-view');
-            const changeView = document.getElementById('change-pwd-view');
-            if (showChange) {
-                loginView.classList.add('hidden');
-                changeView.classList.remove('hidden');
+        function openAttachmentModal(rowIndex, monthIndex) {
+            activeAttachmentTarget = { row: rowIndex, month: monthIndex };
+            const item = appData[currentTab][rowIndex];
+            document.getElementById('target-label-display').innerText = `${item.name} - ${monthIndex}月`;
+            const modal = document.getElementById('attachment-modal');
+            const statusBox = document.getElementById('upload-status-box');
+            const statusIcon = document.getElementById('upload-icon-status');
+            const statusText = document.getElementById('upload-text-status');
+            const viewBtn = document.getElementById('view-file-btn');
+            const deleteSingleBtn = document.getElementById('delete-single-attachment-btn');
+            modal.classList.remove('hidden');
+            const existing = attachmentsStore[currentTab] && attachmentsStore[currentTab][rowIndex] && attachmentsStore[currentTab][rowIndex][monthIndex];
+            if (existing) {
+                statusBox.classList.replace('border-blue-200', 'border-blue-400'); statusBox.classList.add('bg-blue-50');
+                statusIcon.setAttribute('data-lucide', 'check-circle'); statusText.innerText = "檔案已就緒 (點擊更換)";
+                viewBtn.classList.remove('hidden'); deleteSingleBtn.classList.remove('hidden');
             } else {
-                loginView.classList.remove('hidden');
-                changeView.classList.add('hidden');
+                statusBox.classList.replace('border-blue-400', 'border-blue-200'); statusBox.classList.remove('bg-blue-50');
+                statusIcon.setAttribute('data-lucide', 'cloud-upload'); statusText.innerText = "點擊上傳檔案";
+                viewBtn.classList.add('hidden'); deleteSingleBtn.classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        function closeAttachmentModal() { document.getElementById('attachment-modal').classList.add('hidden'); document.getElementById('file-input').value = ''; activeAttachmentTarget = null; }
+
+        function handleFileUpload(input) {
+            const file = input.files[0]; if (!file) return;
+            if (file.size > 5 * 1024 * 1024) { alert("檔案太大，請限制在 5MB 以內"); return; }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (!attachmentsStore[currentTab]) attachmentsStore[currentTab] = {};
+                if (!attachmentsStore[currentTab][activeAttachmentTarget.row]) attachmentsStore[currentTab][activeAttachmentTarget.row] = {};
+                attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month] = { name: file.name, type: file.type, data: e.target.result };
+                persistToStorage(); renderTable(currentTab); openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function viewFileDirectly(file) {
+            const newWindow = window.open();
+            if (file.type === 'application/pdf') { newWindow.document.write(`<iframe src="${file.data}" frameborder="0" style="position:fixed; top:0; left:0; width:100%; height:100%;" allowfullscreen></iframe>`); } 
+            else { newWindow.document.write(`<div style="background:#f1f5f9; min-height:100vh; display:flex; justify-content:center; align-items:center;"><img src="${file.data}" style="max-width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);"></div>`); }
+        }
+
+        function viewCurrentFile() { const file = attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month]; if (file) viewFileDirectly(file); }
+
+        function deleteSingleAttachment() {
+            if (!activeAttachmentTarget || !confirm("確定刪除此月份的單筆附件？")) return;
+            if (attachmentsStore[currentTab] && attachmentsStore[currentTab][activeAttachmentTarget.row]) {
+                delete attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month];
+                if (Object.keys(attachmentsStore[currentTab][activeAttachmentTarget.row]).length === 0) delete attachmentsStore[currentTab][activeAttachmentTarget.row];
+                persistToStorage(); renderTable(currentTab); openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
             }
         }
 
-        // 核心邏輯：從 localStorage 取得密碼，預設為 1068
-        function getAdminPassword() {
-            return localStorage.getItem('ospms_admin_pwd') || '1068';
+        function batchApplyToFile() {
+            const file = attachmentsStore[currentTab]?.[activeAttachmentTarget.row]?.[activeAttachmentTarget.month];
+            if (!file) { alert("請先上傳一個檔案作為範本"); return; }
+            if (!confirm("確定將此檔案套用全年度？")) return;
+            if (!attachmentsStore[currentTab]) attachmentsStore[currentTab] = {};
+            if (!attachmentsStore[currentTab][activeAttachmentTarget.row]) attachmentsStore[currentTab][activeAttachmentTarget.row] = {};
+            for (let i = 1; i <= 12; i++) { attachmentsStore[currentTab][activeAttachmentTarget.row][i] = { ...file }; }
+            persistToStorage(); renderTable(currentTab); alert("已成功套用到全年度");
         }
+
+        function batchClearRowAttachments() {
+            if (!confirm("確定清除此績效指標「全年度」的所有附件檔案？")) return;
+            if (attachmentsStore[currentTab] && attachmentsStore[currentTab][activeAttachmentTarget.row]) {
+                delete attachmentsStore[currentTab][activeAttachmentTarget.row];
+                persistToStorage(); renderTable(currentTab);
+                if (activeAttachmentTarget) openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
+            }
+        }
+
+        // 核心邏輯
+        function autoResize(textarea) { textarea.style.height = 'auto'; textarea.style.height = textarea.scrollHeight + 'px'; }
+
+        function handleAuthClick() {
+            if (isAdmin) { if (confirm("是否退出管理員編輯模式？")) { isAdmin = false; updateUIState(); renderTable(currentTab); } } 
+            else { openLoginModal(); }
+        }
+
+        function openLoginModal() { document.getElementById('login-modal').classList.remove('hidden'); togglePasswordView(false); document.getElementById('login-password').focus(); }
+        function closeLoginModal() { document.getElementById('login-modal').classList.add('hidden'); document.getElementById('login-password').value = ''; }
+        function togglePasswordView(showChange) {
+            const loginView = document.getElementById('login-view');
+            const changeView = document.getElementById('change-pwd-view');
+            if (showChange) { loginView.classList.add('hidden'); changeView.classList.remove('hidden'); } 
+            else { loginView.classList.remove('hidden'); changeView.classList.add('hidden'); }
+        }
+
+        function getAdminPassword() { return localStorage.getItem('ospms_admin_pwd') || '1068'; }
 
         function attemptLogin() {
             if (document.getElementById('login-password').value === getAdminPassword()) { 
                 isAdmin = true; updateUIState(); closeLoginModal(); renderTable(currentTab); 
-            } else { 
-                document.getElementById('login-error').classList.remove('hidden'); 
-            }
+            } else { document.getElementById('login-error').classList.remove('hidden'); }
         }
 
         function handleChangePassword() {
             const oldPwd = document.getElementById('old-password').value;
             const newPwd = document.getElementById('new-password').value;
             const errorEl = document.getElementById('pwd-change-error');
-            
             errorEl.classList.add('hidden');
-
-            if (oldPwd !== getAdminPassword()) {
-                errorEl.innerText = "舊密碼不正確";
-                errorEl.classList.remove('hidden');
-                return;
-            }
-
-            if (newPwd.length < 4) {
-                errorEl.innerText = "新密碼至少需要 4 位數";
-                errorEl.classList.remove('hidden');
-                return;
-            }
-
+            if (oldPwd !== getAdminPassword()) { errorEl.innerText = "舊密碼不正確"; errorEl.classList.remove('hidden'); return; }
+            if (newPwd.length < 4) { errorEl.innerText = "新密碼至少需要 4 位數"; errorEl.classList.remove('hidden'); return; }
             localStorage.setItem('ospms_admin_pwd', newPwd);
-            alert("管理密碼修改成功！下次請使用新密碼登入。");
-            document.getElementById('old-password').value = '';
-            document.getElementById('new-password').value = '';
-            togglePasswordView(false);
+            alert("管理密碼修改成功！");
+            document.getElementById('old-password').value = ''; document.getElementById('new-password').value = ''; togglePasswordView(false);
         }
 
         function updateUIState() {
@@ -564,33 +678,34 @@
             const badge = document.getElementById('admin-badge');
             if (isAdmin) {
                 authIcon.setAttribute('data-lucide', 'unlock');
-                authIcon.classList.replace('text-slate-500', 'text-yellow-500');
+                authIcon.classList.replace('text-slate-500', 'text-orange-500'); // 改為橘色
                 badge.classList.remove('hidden');
             } else {
                 authIcon.setAttribute('data-lucide', 'lock');
-                authIcon.classList.replace('text-yellow-500', 'text-slate-500');
+                authIcon.classList.replace('text-orange-500', 'text-slate-500');
                 badge.classList.add('hidden');
             }
             lucide.createIcons();
         }
 
         function saveAndLogout() {
-            saveCurrentTabData(); persistToStorage();
-            isAdmin = false; updateUIState(); renderTable(currentTab);
-            const n = document.createElement('div');
-            n.className = "fixed top-5 left-1/2 -translate-x-1/2 bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-2xl animate-bounce z-[200]";
-            n.innerText = "資料已儲存！";
-            document.body.appendChild(n);
-            setTimeout(() => n.remove(), 2500);
+            saveCurrentTabData(); persistToStorage(); isAdmin = false; updateUIState(); renderTable(currentTab);
+            alert("資料已儲存並退出編輯模式");
         }
 
         function addNewRow() {
             saveCurrentTabData();
-            appData[currentTab].push({ id: (appData[currentTab].length + 1).toString(), name: "新項目", content: "內容", schedule: "適時", target: "100%" });
+            appData[currentTab].push({ id: (appData[currentTab].length + 1).toString(), name: "新項目", content: "內容描述", schedule: "適時", target: "100%" });
             renderTable(currentTab);
         }
 
-        function deleteRow(idx) { if (confirm("確定刪除？")) { saveCurrentTabData(); appData[currentTab].splice(idx, 1); renderTable(currentTab); } }
+        function deleteRow(idx) { 
+            if (confirm("確定刪除？")) { 
+                saveCurrentTabData(); appData[currentTab].splice(idx, 1); 
+                if (attachmentsStore[currentTab] && attachmentsStore[currentTab][idx]) delete attachmentsStore[currentTab][idx];
+                renderTable(currentTab); 
+            } 
+        }
 
         function handleYearFormat(input) {
             let val = input.value.trim();
@@ -621,26 +736,35 @@
         }
 
         function handleKeyDown(e, input) {
-            const cell = input.parentElement;
-            const row = cell.parentElement;
-            const table = row.parentElement;
-            const cells = Array.from(row.cells);
-            const rows = Array.from(table.rows);
-            const rIdx = rows.indexOf(row);
+            const cell = input.parentElement; 
+            const row = cell.parentElement; 
+            const tableBody = row.parentElement;
+            const cells = Array.from(row.cells); 
+            const rows = Array.from(tableBody.rows);
+            const rIdx = rows.indexOf(row); 
             const cIdx = cells.indexOf(cell);
+
             if (e.key === "Enter" || e.key === "ArrowDown") {
-                e.preventDefault();
+                e.preventDefault(); 
                 if (rIdx < rows.length - 1) rows[rIdx + 1].cells[cIdx].querySelector('input')?.focus();
             } else if (e.key === "ArrowUp") {
-                e.preventDefault();
+                e.preventDefault(); 
                 if (rIdx > 0) rows[rIdx - 1].cells[cIdx].querySelector('input')?.focus();
             } else if (e.key === "ArrowRight") {
+                // 如果游標已經在最後面，或者按的是右鍵，則移動到下一個輸入框
                 if (input.selectionStart === input.value.length) {
-                    if (cIdx < cells.length - 1) cells[cIdx + 1].querySelector('input')?.focus();
+                    if (cIdx < cells.length - 1) {
+                        const nextInput = cells[cIdx + 1].querySelector('input');
+                        if (nextInput) { e.preventDefault(); nextInput.focus(); nextInput.select(); }
+                    }
                 }
             } else if (e.key === "ArrowLeft") {
+                // 如果游標已經在最前面，或者按的是左鍵，則移動到前一個輸入框
                 if (input.selectionStart === 0) {
-                    if (cIdx > 0) cells[cIdx - 1].querySelector('input')?.focus();
+                    if (cIdx > 0) {
+                        const prevInput = cells[cIdx - 1].querySelector('input');
+                        if (prevInput) { e.preventDefault(); prevInput.focus(); prevInput.select(); }
+                    }
                 }
             }
         }
