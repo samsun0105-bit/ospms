@@ -182,27 +182,51 @@
         </div>
     </main>
 
-    <!-- 管理員驗證彈窗 -->
+    <!-- 管理員驗證與修改密碼彈窗 -->
     <div id="login-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div class="p-8">
-                <div class="flex flex-col items-center text-center mb-6">
-                    <div class="bg-slate-100 p-3 rounded-full mb-4">
-                        <i data-lucide="lock-keyhole" class="w-8 h-8 text-slate-600"></i>
+                <!-- 登入介面 -->
+                <div id="login-view">
+                    <div class="flex flex-col items-center text-center mb-6">
+                        <div class="bg-slate-100 p-3 rounded-full mb-4">
+                            <i data-lucide="lock-keyhole" class="w-8 h-8 text-slate-600"></i>
+                        </div>
+                        <h3 class="text-xl font-black text-slate-900">管理員權限驗證</h3>
+                        <p class="text-sm text-slate-500 mt-1">請輸入系統存取密碼以解鎖編輯欄位</p>
                     </div>
-                    <h3 class="text-xl font-black text-slate-900">管理員權限驗證</h3>
-                    <p class="text-sm text-slate-500 mt-1">請輸入系統存取密碼以解鎖編輯欄位</p>
+                    <div class="space-y-4">
+                        <input type="password" id="login-password" 
+                               class="w-full px-4 py-3 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition outline-none text-center text-xl tracking-[0.5em]" 
+                               placeholder="••••"
+                               onkeyup="if(event.key === 'Enter') attemptLogin()">
+                        <div class="flex space-x-2">
+                            <button onclick="closeLoginModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition text-sm">取消</button>
+                            <button onclick="attemptLogin()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition text-sm">解鎖編輯</button>
+                        </div>
+                        <button onclick="togglePasswordView(true)" class="w-full text-xs text-slate-400 hover:text-blue-500 transition py-1">需要修改管理密碼？</button>
+                        <p id="login-error" class="text-center text-red-500 text-xs font-bold hidden">密碼錯誤，請重新輸入</p>
+                    </div>
                 </div>
-                <div class="space-y-4">
-                    <input type="password" id="login-password" 
-                           class="w-full px-4 py-3 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition outline-none text-center text-xl tracking-[0.5em]" 
-                           placeholder="••••"
-                           onkeyup="if(event.key === 'Enter') attemptLogin()">
-                    <div class="flex space-x-2">
-                        <button onclick="closeLoginModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition">取消</button>
-                        <button onclick="attemptLogin()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition">解鎖編輯</button>
+
+                <!-- 修改密碼介面 -->
+                <div id="change-pwd-view" class="hidden">
+                    <div class="flex flex-col items-center text-center mb-6">
+                        <div class="bg-yellow-50 p-3 rounded-full mb-4">
+                            <i data-lucide="key-round" class="w-8 h-8 text-yellow-600"></i>
+                        </div>
+                        <h3 class="text-xl font-black text-slate-900">修改管理密碼</h3>
+                        <p class="text-sm text-slate-500 mt-1">需先輸入舊密碼驗證身份</p>
                     </div>
-                    <p id="login-error" class="text-center text-red-500 text-xs font-bold hidden">密碼錯誤，請重新輸入</p>
+                    <div class="space-y-3">
+                        <input type="password" id="old-password" class="w-full px-4 py-2 bg-slate-100 border-none rounded-lg focus:ring-2 focus:ring-blue-500 transition outline-none text-sm" placeholder="目前的密碼">
+                        <input type="password" id="new-password" class="w-full px-4 py-2 bg-slate-100 border-none rounded-lg focus:ring-2 focus:ring-blue-500 transition outline-none text-sm" placeholder="設定新密碼">
+                        <div class="flex space-x-2 pt-2">
+                            <button onclick="togglePasswordView(false)" class="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg font-bold hover:bg-slate-200 transition text-xs">返回</button>
+                            <button onclick="handleChangePassword()" class="flex-1 py-2 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600 transition text-xs">確認修改</button>
+                        </div>
+                        <p id="pwd-change-error" class="text-center text-red-500 text-[10px] font-bold hidden"></p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -327,58 +351,27 @@
             reader.readAsText(file);
         }
 
-        /**
-         * 匯出 Excel 功能
-         * 將每個目錄 (分類) 顯示在不同的工作表 (Sheet) 中
-         */
         function exportFullReport() {
             try {
                 const wb = XLSX.utils.book_new();
                 const yearLabel = document.getElementById('year-input-field').value;
 
                 Object.keys(titles).forEach(key => {
-                    const sheetName = titles[key].substring(0, 31); // Excel 工作表名稱限制 31 字元
+                    const sheetName = titles[key].substring(0, 31);
                     const baseInfo = appData[key];
                     const savedValues = tableDataStore[key] || [];
-
-                    // 建立表頭，統一使用「目標值」
                     const headers = ["編號", "績效指標內容", "計算方式", "時程規劃", "目標值", "1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
                     const rows = [headers];
-
-                    // 填入數據
                     baseInfo.forEach((item, idx) => {
                         const rowSaved = savedValues[idx] || [];
-                        const excelRow = [
-                            item.id,
-                            item.name,
-                            item.content,
-                            rowSaved[0] || item.schedule,
-                            rowSaved[1] || item.target
-                        ];
-                        
-                        // 填入 1-12 月數據
-                        for (let i = 2; i <= 13; i++) {
-                            excelRow.push(rowSaved[i] || "");
-                        }
+                        const excelRow = [item.id, item.name, item.content, rowSaved[0] || item.schedule, rowSaved[1] || item.target];
+                        for (let i = 2; i <= 13; i++) { excelRow.push(rowSaved[i] || ""); }
                         rows.push(excelRow);
                     });
-
                     const ws = XLSX.utils.aoa_to_sheet(rows);
-                    
-                    // 設定欄寬
-                    ws['!cols'] = [
-                        { wch: 5 },  // 編號
-                        { wch: 30 }, // 內容
-                        { wch: 40 }, // 計算方式
-                        { wch: 10 }, // 時程
-                        { wch: 10 }, // 目標
-                        ...Array(12).fill({ wch: 6 }) // 1-12月
-                    ];
-
+                    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 40 }, { wch: 10 }, { wch: 10 }, ...Array(12).fill({ wch: 6 })];
                     XLSX.utils.book_append_sheet(wb, ws, sheetName);
                 });
-
-                // 產生檔案並下載
                 XLSX.writeFile(wb, `OSPMS_${yearLabel.replace(/[\s\(\)]/g, '')}_全年度績效報表.xlsx`);
             } catch (error) {
                 console.error("Excel Export Error:", error);
@@ -456,7 +449,6 @@
                 const row = document.createElement('tr');
                 row.className = "hover:bg-slate-50/50 group transition-colors";
                 const rowSaved = savedData[rowIndex] || [];
-                
                 let monthCells = "";
                 for (let i = 1; i <= 12; i++) {
                     const val = rowSaved[i+1] !== undefined ? rowSaved[i+1] : "";
@@ -498,25 +490,15 @@
             textarea.style.height = textarea.scrollHeight + 'px';
         }
 
-        /**
-         * 處理鎖頭按鈕點擊邏輯
-         */
         function handleAuthClick() {
             if (isAdmin) {
-                // 已處於管理員模式，點擊鎖頭觸發退出確認
-                if (confirm("是否退出管理員編輯模式？")) { 
-                    isAdmin = false; 
-                    updateUIState(); 
-                    renderTable(currentTab); 
-                }
-            } else {
-                // 處於一般模式，點擊鎖頭開啟登入彈窗
-                openLoginModal();
-            }
+                if (confirm("是否退出管理員編輯模式？")) { isAdmin = false; updateUIState(); renderTable(currentTab); }
+            } else { openLoginModal(); }
         }
 
         function openLoginModal() {
             document.getElementById('login-modal').classList.remove('hidden');
+            togglePasswordView(false);
             document.getElementById('login-password').focus();
         }
 
@@ -526,12 +508,55 @@
             document.getElementById('login-error').classList.add('hidden'); 
         }
 
+        function togglePasswordView(showChange) {
+            const loginView = document.getElementById('login-view');
+            const changeView = document.getElementById('change-pwd-view');
+            if (showChange) {
+                loginView.classList.add('hidden');
+                changeView.classList.remove('hidden');
+            } else {
+                loginView.classList.remove('hidden');
+                changeView.classList.add('hidden');
+            }
+        }
+
+        // 核心邏輯：從 localStorage 取得密碼，預設為 1068
+        function getAdminPassword() {
+            return localStorage.getItem('ospms_admin_pwd') || '1068';
+        }
+
         function attemptLogin() {
-            if (document.getElementById('login-password').value === '0000') { 
+            if (document.getElementById('login-password').value === getAdminPassword()) { 
                 isAdmin = true; updateUIState(); closeLoginModal(); renderTable(currentTab); 
             } else { 
                 document.getElementById('login-error').classList.remove('hidden'); 
             }
+        }
+
+        function handleChangePassword() {
+            const oldPwd = document.getElementById('old-password').value;
+            const newPwd = document.getElementById('new-password').value;
+            const errorEl = document.getElementById('pwd-change-error');
+            
+            errorEl.classList.add('hidden');
+
+            if (oldPwd !== getAdminPassword()) {
+                errorEl.innerText = "舊密碼不正確";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            if (newPwd.length < 4) {
+                errorEl.innerText = "新密碼至少需要 4 位數";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            localStorage.setItem('ospms_admin_pwd', newPwd);
+            alert("管理密碼修改成功！下次請使用新密碼登入。");
+            document.getElementById('old-password').value = '';
+            document.getElementById('new-password').value = '';
+            togglePasswordView(false);
         }
 
         function updateUIState() {
@@ -601,10 +626,8 @@
             const table = row.parentElement;
             const cells = Array.from(row.cells);
             const rows = Array.from(table.rows);
-            
             const rIdx = rows.indexOf(row);
             const cIdx = cells.indexOf(cell);
-
             if (e.key === "Enter" || e.key === "ArrowDown") {
                 e.preventDefault();
                 if (rIdx < rows.length - 1) rows[rIdx + 1].cells[cIdx].querySelector('input')?.focus();
