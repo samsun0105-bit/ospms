@@ -81,13 +81,6 @@
         .attachment-btn.no-file { color: #d1d5db; opacity: 0.4; }
         .attachment-btn:hover { opacity: 1; transform: scale(1.2); }
 
-        /* 拖曳上傳樣式 */
-        #upload-status-box.drag-over {
-            background-color: #eff6ff;
-            border-color: #3b82f6;
-            transform: scale(1.02);
-        }
-
         @media print {
             @page { size: A4 landscape; margin: 0.5cm; }
             .no-print { display: none !important; }
@@ -275,18 +268,18 @@
                 </div>
             </div>
             <div class="mb-8">
-                <label class="text-[12px] font-bold text-slate-400 mb-2 block">連結電腦 PDF / PNG / JPG 檔案 (支援拖曳)</label>
+                <label class="text-[12px] font-bold text-slate-400 mb-2 block">連結電腦 PDF 或 PNG 檔案</label>
                 <div class="flex items-center space-x-3">
                     <div id="upload-status-box" onclick="document.getElementById('file-input').click()" 
-                         class="flex-1 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl py-5 px-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-blue-50 transition group transition-all duration-200">
+                         class="flex-1 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl py-5 px-4 flex items-center justify-center space-x-2 cursor-pointer hover:bg-blue-50 transition group">
                         <i id="upload-icon-status" data-lucide="cloud-upload" class="w-5 h-5 text-blue-500"></i>
-                        <span id="upload-text-status" class="text-blue-600 font-bold text-sm">點擊或拖曳檔案至此</span>
+                        <span id="upload-text-status" class="text-blue-600 font-bold text-sm">點擊上傳檔案</span>
                     </div>
                     <button onclick="viewCurrentFile()" id="view-file-btn" class="hidden h-[60px] w-[60px] flex items-center justify-center bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 transition">
                         <i data-lucide="external-link" class="w-6 h-6"></i>
                     </button>
                 </div>
-                <input type="file" id="file-input" class="hidden" accept=".pdf,.png,.jpg,.jpeg" onchange="handleFileUpload(this)">
+                <input type="file" id="file-input" class="hidden" accept=".pdf,.png" onchange="handleFileUpload(this)">
             </div>
             <hr class="border-slate-100 mb-6">
             <div class="mb-8">
@@ -321,7 +314,7 @@
                 { id: "9", name: "消防防護計畫", content: "製定消防防護計畫，報請消防機關核備。", schedule: "月", target: "100%" },
                 { id: "10", name: "自動檢查計畫", content: "定期更新新安全衛生自動檢查計畫。", schedule: "月", target: "100%" },
                 { id: "11", name: "作業安全管理", content: "高風險作業現場安全查核符合率%。", schedule: "月", target: "100%" },
-                { id: "12", name: "變更管理風險評估", content: "MOC 風際評估完成率%。", schedule: "適時", target: "100%" },
+                { id: "12", name: "變更管理風險評估", content: "MOC 風險評估完成率%。", schedule: "適時", target: "100%" },
                 { id: "13", name: "安衛自動檢查檢核符合率", content: "安衛自動檢查檢核符合率 = 累積合格單位數/受檢單位數x100%", schedule: "適時", target: "90%" },
                 { id: "14", name: "定期實施一般健康檢查", content: "依法定年齡區間定期實施一般健康檢查。", schedule: "年", target: "100%" },
                 { id: "15", name: "特殊作業人員檢查計畫", content: "每年實施特殊健康檢查。", schedule: "年", target: "100%" },
@@ -384,24 +377,77 @@
         let isAdmin = false;
         let activeAttachmentTarget = null; 
 
-        // 持久化
-        function loadFromStorage() {
-            const saved = localStorage.getItem('ospms_data_store');
-            if (saved) tableDataStore = JSON.parse(saved);
-            const savedAttach = localStorage.getItem('ospms_attachments');
-            if (savedAttach) attachmentsStore = JSON.parse(savedAttach);
-            const savedBaseData = localStorage.getItem('ospms_base_data');
-            if (savedBaseData) {
-                const parsed = JSON.parse(savedBaseData);
-                Object.keys(parsed).forEach(k => { if(appData[k]) appData[k] = parsed[k]; });
+        // --- IndexedDB 核心邏輯 ---
+        const DB_NAME = "OSPMS_DB";
+        const DB_VERSION = 1;
+        const STORE_KEY = "main_data";
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_KEY)) {
+                        db.createObjectStore(STORE_KEY);
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject("DB Open Error");
+            });
+        }
+
+        async function loadFromStorage() {
+            try {
+                const db = await openDB();
+                const transaction = db.transaction(STORE_KEY, "readonly");
+                const store = transaction.objectStore(STORE_KEY);
+                
+                // 讀取所有數據項
+                const getRequest = (key) => new Promise((res) => {
+                    const req = store.get(key);
+                    req.onsuccess = () => res(req.result);
+                });
+
+                const savedData = await getRequest('ospms_data_store');
+                if (savedData) tableDataStore = savedData;
+
+                const savedAttach = await getRequest('ospms_attachments');
+                if (savedAttach) attachmentsStore = savedAttach;
+
+                const savedBaseData = await getRequest('ospms_base_data');
+                if (savedBaseData) {
+                    Object.keys(savedBaseData).forEach(k => { if(appData[k]) appData[k] = savedBaseData[k]; });
+                }
+
+                // 初始化頁面
+                initNav(); 
+                switchTab('plan');
+            } catch (err) {
+                console.error("Load Error:", err);
+                initNav(); 
+                switchTab('plan');
             }
         }
 
-        function persistToStorage() {
-            localStorage.setItem('ospms_data_store', JSON.stringify(tableDataStore));
-            localStorage.setItem('ospms_attachments', JSON.stringify(attachmentsStore));
-            localStorage.setItem('ospms_base_data', JSON.stringify(appData));
+        async function persistToStorage() {
+            try {
+                const db = await openDB();
+                const transaction = db.transaction(STORE_KEY, "readwrite");
+                const store = transaction.objectStore(STORE_KEY);
+                
+                store.put(tableDataStore, 'ospms_data_store');
+                store.put(attachmentsStore, 'ospms_attachments');
+                store.put(appData, 'ospms_base_data');
+                
+                return new Promise((resolve) => {
+                    transaction.oncomplete = () => resolve();
+                });
+            } catch (err) {
+                console.error("Save Error:", err);
+            }
         }
+
+        // --- 功能模組 ---
 
         function exportJSON() {
             const dataToExport = { data_store: tableDataStore, attachments: attachmentsStore, base_data: appData, export_date: new Date().toLocaleString() };
@@ -417,13 +463,13 @@
             const file = input.files[0];
             if (!file || !confirm("導入將會覆蓋目前所有數據，確定嗎？")) return;
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = async (e) => {
                 try {
                     const imported = JSON.parse(e.target.result);
                     tableDataStore = imported.data_store || {};
                     attachmentsStore = imported.attachments || {};
                     appData = imported.base_data || appData;
-                    persistToStorage();
+                    await persistToStorage();
                     window.location.reload();
                 } catch (err) { alert("檔案格式錯誤！"); }
             };
@@ -578,74 +624,34 @@
             const statusText = document.getElementById('upload-text-status');
             const viewBtn = document.getElementById('view-file-btn');
             const deleteSingleBtn = document.getElementById('delete-single-attachment-btn');
-            
-            // 初始化拖曳區域
-            initDragAndDrop(statusBox);
-
             modal.classList.remove('hidden');
             const existing = attachmentsStore[currentTab] && attachmentsStore[currentTab][rowIndex] && attachmentsStore[currentTab][rowIndex][monthIndex];
             if (existing) {
                 statusBox.classList.replace('border-blue-200', 'border-blue-400'); statusBox.classList.add('bg-blue-50');
-                statusIcon.setAttribute('data-lucide', 'check-circle'); statusText.innerText = "檔案已就緒 (點擊或拖曳更換)";
+                statusIcon.setAttribute('data-lucide', 'check-circle'); statusText.innerText = "檔案已就緒 (點擊更換)";
                 viewBtn.classList.remove('hidden'); deleteSingleBtn.classList.remove('hidden');
             } else {
                 statusBox.classList.replace('border-blue-400', 'border-blue-200'); statusBox.classList.remove('bg-blue-50');
-                statusIcon.setAttribute('data-lucide', 'cloud-upload'); statusText.innerText = "點擊或拖曳檔案至此";
+                statusIcon.setAttribute('data-lucide', 'cloud-upload'); statusText.innerText = "點擊上傳檔案";
                 viewBtn.classList.add('hidden'); deleteSingleBtn.classList.add('hidden');
             }
             lucide.createIcons();
-        }
-
-        // 拖曳上傳邏輯
-        function initDragAndDrop(area) {
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                area.addEventListener(eventName, preventDefaults, false);
-            });
-            function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
-
-            ['dragenter', 'dragover'].forEach(eventName => {
-                area.addEventListener(eventName, () => area.classList.add('drag-over'), false);
-            });
-            ['dragleave', 'drop'].forEach(eventName => {
-                area.addEventListener(eventName, () => area.classList.remove('drag-over'), false);
-            });
-
-            area.addEventListener('drop', handleDrop, false);
-        }
-
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            if (files.length > 0) {
-                const file = files[0];
-                const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
-                if (validTypes.includes(file.type)) {
-                    processFile(file);
-                } else {
-                    alert("不支援此檔案格式。請上傳 PDF, PNG 或 JPG 檔案。");
-                }
-            }
         }
 
         function closeAttachmentModal() { document.getElementById('attachment-modal').classList.add('hidden'); document.getElementById('file-input').value = ''; activeAttachmentTarget = null; }
 
         function handleFileUpload(input) {
             const file = input.files[0]; if (!file) return;
-            processFile(file);
-        }
-
-        function processFile(file) {
-            if (file.size > 5 * 1024 * 1024) { alert("檔案太大，請限制在 5MB 以內"); return; }
+            // 由於 IndexedDB 容量較大，我們將限制放寬到 10MB，或根據需求調整
+            if (file.size > 10 * 1024 * 1024) { alert("檔案太大，IndexedDB 雖然支援，但建議單個檔案限制在 10MB 以內以利導出。"); return; }
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 if (!attachmentsStore[currentTab]) attachmentsStore[currentTab] = {};
                 if (!attachmentsStore[currentTab][activeAttachmentTarget.row]) attachmentsStore[currentTab][activeAttachmentTarget.row] = {};
-                attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month] = { 
-                    name: file.name, 
-                    type: file.type, 
-                    data: e.target.result 
-                };
-                persistToStorage(); renderTable(currentTab); openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
+                attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month] = { name: file.name, type: file.type, data: e.target.result };
+                await persistToStorage(); 
+                renderTable(currentTab); 
+                openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
             };
             reader.readAsDataURL(file);
         }
@@ -658,30 +664,35 @@
 
         function viewCurrentFile() { const file = attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month]; if (file) viewFileDirectly(file); }
 
-        function deleteSingleAttachment() {
+        async function deleteSingleAttachment() {
             if (!activeAttachmentTarget || !confirm("確定刪除此月份的單筆附件？")) return;
             if (attachmentsStore[currentTab] && attachmentsStore[currentTab][activeAttachmentTarget.row]) {
                 delete attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month];
                 if (Object.keys(attachmentsStore[currentTab][activeAttachmentTarget.row]).length === 0) delete attachmentsStore[currentTab][activeAttachmentTarget.row];
-                persistToStorage(); renderTable(currentTab); openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
+                await persistToStorage(); 
+                renderTable(currentTab); 
+                openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
             }
         }
 
-        function batchApplyToFile() {
+        async function batchApplyToFile() {
             const file = attachmentsStore[currentTab]?.[activeAttachmentTarget.row]?.[activeAttachmentTarget.month];
             if (!file) { alert("請先上傳一個檔案作為範本"); return; }
             if (!confirm("確定將此檔案套用全年度？")) return;
             if (!attachmentsStore[currentTab]) attachmentsStore[currentTab] = {};
             if (!attachmentsStore[currentTab][activeAttachmentTarget.row]) attachmentsStore[currentTab][activeAttachmentTarget.row] = {};
             for (let i = 1; i <= 12; i++) { attachmentsStore[currentTab][activeAttachmentTarget.row][i] = { ...file }; }
-            persistToStorage(); renderTable(currentTab); alert("已成功套用到全年度");
+            await persistToStorage(); 
+            renderTable(currentTab); 
+            alert("已成功套用到全年度");
         }
 
-        function batchClearRowAttachments() {
+        async function batchClearRowAttachments() {
             if (!confirm("確定清除此績效指標「全年度」的所有附件檔案？")) return;
             if (attachmentsStore[currentTab] && attachmentsStore[currentTab][activeAttachmentTarget.row]) {
                 delete attachmentsStore[currentTab][activeAttachmentTarget.row];
-                persistToStorage(); renderTable(currentTab);
+                await persistToStorage(); 
+                renderTable(currentTab);
                 if (activeAttachmentTarget) openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
             }
         }
@@ -738,8 +749,12 @@
             lucide.createIcons();
         }
 
-        function saveAndLogout() {
-            saveCurrentTabData(); persistToStorage(); isAdmin = false; updateUIState(); renderTable(currentTab);
+        async function saveAndLogout() {
+            saveCurrentTabData(); 
+            await persistToStorage(); 
+            isAdmin = false; 
+            updateUIState(); 
+            renderTable(currentTab);
             alert("資料已儲存並退出編輯模式");
         }
 
@@ -749,10 +764,11 @@
             renderTable(currentTab);
         }
 
-        function deleteRow(idx) { 
+        async function deleteRow(idx) { 
             if (confirm("確定刪除？")) { 
                 saveCurrentTabData(); appData[currentTab].splice(idx, 1); 
                 if (attachmentsStore[currentTab] && attachmentsStore[currentTab][idx]) delete attachmentsStore[currentTab][idx];
+                await persistToStorage();
                 renderTable(currentTab); 
             } 
         }
@@ -817,7 +833,8 @@
             }
         }
 
-        window.onload = () => { loadFromStorage(); initNav(); switchTab('plan'); };
+        // 使用 async 載入流程
+        window.onload = () => { loadFromStorage(); };
     </script>
 </body>
 </html>
