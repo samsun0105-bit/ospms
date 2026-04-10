@@ -39,12 +39,13 @@
             font-size: 11px; 
             transition: all 0.2s;
             background: transparent;
+            color: #475569;
         }
-        .input-cell:disabled { cursor: not-allowed; opacity: 0.8; }
+        .input-cell:disabled { cursor: not-allowed; opacity: 1; color: #475569; }
         .input-cell:not(:disabled):hover { border-color: #cbd5e1; background: #fff; }
         .input-cell:not(:disabled):focus { border-color: #3b82f6; background: #fff; outline: none; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
 
-        .admin-edit-cell { background-color: #fefce8 !important; border: 1px dashed #eab308 !important; }
+        .admin-edit-cell { background-color: #fefce8 !important; border: 1px dashed #eab308 !important; color: #475569 !important; }
 
         .year-input {
             background: #dbeafe;
@@ -86,6 +87,32 @@
             background-color: #eff6ff;
             transform: scale(1.02);
         }
+
+        /* 排序選單樣式 */
+        .sort-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 4px;
+            z-index: 100;
+            display: none;
+            min-width: 120px;
+        }
+        .sort-menu button {
+            width: 100%;
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+        }
+        .sort-menu button:hover { background: #f1f5f9; color: #1e293b; }
+        .sort-menu button:disabled { opacity: 0.4; cursor: not-allowed; }
 
         @media print {
             @page { size: A4 landscape; margin: 0.5cm; }
@@ -205,6 +232,12 @@
             </div>
         </div>
     </main>
+
+    <!-- 排序選單 -->
+    <div id="sort-menu" class="sort-menu no-print">
+        <button id="move-up-btn" onclick="moveRow('up')"><i data-lucide="arrow-up" class="w-3 h-3 inline mr-2"></i>上移項目</button>
+        <button id="move-down-btn" onclick="moveRow('down')"><i data-lucide="arrow-down" class="w-3 h-3 inline mr-2"></i>下移項目</button>
+    </div>
 
     <!-- 管理員驗證彈窗 -->
     <div id="login-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
@@ -383,8 +416,9 @@
         let attachmentsStore = {}; 
         let isAdmin = false;
         let activeAttachmentTarget = null; 
+        let activeSortRowIdx = null; // 當前準備排序的行索引
 
-        // --- IndexedDB 核心邏輯 ---
+        // --- IndexedDB ---
         const DB_NAME = "OSPMS_DB";
         const DB_VERSION = 1;
         const STORE_KEY = "main_data";
@@ -394,9 +428,7 @@
                 const request = indexedDB.open(DB_NAME, DB_VERSION);
                 request.onupgradeneeded = (e) => {
                     const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE_KEY)) {
-                        db.createObjectStore(STORE_KEY);
-                    }
+                    if (!db.objectStoreNames.contains(STORE_KEY)) db.createObjectStore(STORE_KEY);
                 };
                 request.onsuccess = (e) => resolve(e.target.result);
                 request.onerror = (e) => reject("DB Open Error");
@@ -408,23 +440,16 @@
                 const db = await openDB();
                 const transaction = db.transaction(STORE_KEY, "readonly");
                 const store = transaction.objectStore(STORE_KEY);
-                
                 const getRequest = (key) => new Promise((res) => {
                     const req = store.get(key);
                     req.onsuccess = () => res(req.result);
                 });
-
                 const savedData = await getRequest('ospms_data_store');
                 if (savedData) tableDataStore = savedData;
-
                 const savedAttach = await getRequest('ospms_attachments');
                 if (savedAttach) attachmentsStore = savedAttach;
-
                 const savedBaseData = await getRequest('ospms_base_data');
-                if (savedBaseData) {
-                    Object.keys(savedBaseData).forEach(k => { if(appData[k]) appData[k] = savedBaseData[k]; });
-                }
-
+                if (savedBaseData) Object.keys(savedBaseData).forEach(k => { if(appData[k]) appData[k] = savedBaseData[k]; });
                 initNav(); 
                 switchTab('plan');
                 initDragAndDrop();
@@ -440,17 +465,11 @@
                 const db = await openDB();
                 const transaction = db.transaction(STORE_KEY, "readwrite");
                 const store = transaction.objectStore(STORE_KEY);
-                
                 store.put(tableDataStore, 'ospms_data_store');
                 store.put(attachmentsStore, 'ospms_attachments');
                 store.put(appData, 'ospms_base_data');
-                
-                return new Promise((resolve) => {
-                    transaction.oncomplete = () => resolve();
-                });
-            } catch (err) {
-                console.error("Save Error:", err);
-            }
+                return new Promise((resolve) => { transaction.oncomplete = () => resolve(); });
+            } catch (err) { console.error("Save Error:", err); }
         }
 
         // --- 功能模組 ---
@@ -539,12 +558,11 @@
                 const inputs = Array.from(tr.querySelectorAll(".input-cell")).map(i => i.value);
                 data.push(inputs);
                 if (isAdmin) {
-                    const idInput = tr.querySelector('.admin-id-input');
                     const nameInput = tr.querySelector('.admin-name-input');
                     const contentInput = tr.querySelector('.admin-content-input');
-                    if (idInput && nameInput && contentInput) {
+                    if (nameInput && contentInput) {
                         if (!appData[currentTab][idx]) appData[currentTab][idx] = {};
-                        appData[currentTab][idx].id = idInput.value;
+                        // ID 由編號功能控制，其餘由輸入框控制
                         appData[currentTab][idx].name = nameInput.value;
                         appData[currentTab][idx].content = contentInput.value;
                     }
@@ -568,6 +586,9 @@
             }
 
             appData[type].forEach((item, rowIndex) => {
+                // 自動重新校準編號 (依序遞增)
+                item.id = (rowIndex + 1).toString();
+                
                 const row = document.createElement('tr');
                 row.className = "hover:bg-slate-50/50 group transition-colors";
                 const rowSaved = savedData[rowIndex] || [];
@@ -589,19 +610,23 @@
                     </td>`;
                 }
 
-                const idHTML = isAdmin ? `<input type="text" class="admin-id-input w-full bg-transparent text-center font-bold admin-edit-cell rounded" value="${item.id}">` : item.id;
-                const nameHTML = isAdmin ? `<textarea class="admin-name-input w-full text-[11px] leading-tight admin-edit-cell rounded p-1 h-12" oninput="autoResize(this)">${item.name}</textarea>` : `<div class="text-[11px] font-bold leading-tight">${item.name}</div>`;
-                const contentHTML = isAdmin ? `<textarea class="admin-content-input w-full text-[10px] leading-normal admin-edit-cell rounded p-1 h-12" oninput="autoResize(this)">${item.content}</textarea>` : `<div class="text-[10px] text-slate-500 leading-normal">${item.content}</div>`;
+                // 修改編號欄位，管理模式下點擊觸發排序選單
+                const idContent = isAdmin 
+                    ? `<button onclick="toggleSortMenu(event, ${rowIndex})" class="w-full h-full bg-yellow-50 hover:bg-yellow-200 transition-colors font-bold text-slate-700 py-2 rounded border border-yellow-200">${item.id}</button>` 
+                    : item.id;
+
+                const nameHTML = isAdmin ? `<textarea class="admin-name-input w-full text-[11px] leading-tight admin-edit-cell rounded p-1 h-12" oninput="autoResize(this)">${item.name}</textarea>` : `<div class="text-[11px] font-bold leading-tight text-slate-600">${item.name}</div>`;
+                const contentHTML = isAdmin ? `<textarea class="admin-content-input w-full text-[10px] leading-normal admin-edit-cell rounded p-1 h-12" oninput="autoResize(this)">${item.content}</textarea>` : `<div class="text-[10px] text-slate-600 leading-normal">${item.content}</div>`;
 
                 row.innerHTML = `
-                    <td class="px-2 py-4 text-[10px] font-bold text-slate-400 sticky-col-num border-b">${idHTML}</td>
+                    <td class="px-1 py-1 text-[10px] sticky-col-num border-b">${idContent}</td>
                     <td class="px-4 py-4 sticky-col-name border-b">${nameHTML}</td>
                     <td class="px-4 py-4 border-l border-b bg-white group-hover:bg-slate-50/50">${contentHTML}</td>
                     <td class="px-1 py-2 border-l border-b bg-white group-hover:bg-slate-50/50">
-                        <input type="text" class="input-cell font-bold text-slate-400" value="${rowSaved[0] || item.schedule}" ${!isAdmin ? 'disabled' : ''} onkeydown="handleKeyDown(event, this)">
+                        <input type="text" class="input-cell font-light" value="${rowSaved[0] || item.schedule}" ${!isAdmin ? 'disabled' : ''} onkeydown="handleKeyDown(event, this)">
                     </td>
                     <td class="px-1 py-2 border-l border-b bg-white group-hover:bg-slate-50/50">
-                        <input type="text" class="input-cell font-black text-blue-600" value="${rowSaved[1] || item.target}" ${!isAdmin ? 'disabled' : ''} onkeydown="handleKeyDown(event, this)">
+                        <input type="text" class="input-cell font-light" value="${rowSaved[1] || item.target}" ${!isAdmin ? 'disabled' : ''} onblur="appendPercentage(this)" onkeydown="handleKeyDown(event, this)">
                     </td>
                     ${monthCells}
                     <td class="${isAdmin ? '' : 'hidden'} px-2 py-2 border-l border-b text-center">
@@ -614,7 +639,75 @@
             lucide.createIcons();
         }
 
-        // 附件功能
+        // --- 排序功能邏輯 ---
+
+        function toggleSortMenu(e, idx) {
+            e.stopPropagation();
+            const menu = document.getElementById('sort-menu');
+            activeSortRowIdx = idx;
+            
+            // 檢查是否為第一條或最後一條，若是則禁用對應按鈕
+            const list = appData[currentTab];
+            document.getElementById('move-up-btn').disabled = (idx === 0);
+            document.getElementById('move-down-btn').disabled = (idx === list.length - 1);
+
+            menu.style.display = 'block';
+            menu.style.left = `${e.pageX}px`;
+            menu.style.top = `${e.pageY}px`;
+
+            // 點擊外面自動關閉
+            const closeMenu = () => { menu.style.display = 'none'; document.removeEventListener('click', closeMenu); };
+            setTimeout(() => document.addEventListener('click', closeMenu), 0);
+        }
+
+        async function moveRow(direction) {
+            if (activeSortRowIdx === null) return;
+            
+            // 排序前先儲存目前的輸入值到 Store
+            saveCurrentTabData();
+            
+            const targetIdx = direction === 'up' ? activeSortRowIdx - 1 : activeSortRowIdx + 1;
+            const list = appData[currentTab];
+            const dataStoreList = tableDataStore[currentTab] || [];
+            const attachStoreList = attachmentsStore[currentTab] || {};
+
+            if (targetIdx < 0 || targetIdx >= list.length) return;
+
+            // 1. 交換基礎數據 (appData)
+            const tempBase = list[activeSortRowIdx];
+            list[activeSortRowIdx] = list[targetIdx];
+            list[targetIdx] = tempBase;
+
+            // 2. 交換輸入內容數據 (tableDataStore)
+            if (dataStoreList.length > 0) {
+                const tempVal = dataStoreList[activeSortRowIdx];
+                dataStoreList[activeSortRowIdx] = dataStoreList[targetIdx];
+                dataStoreList[targetIdx] = tempVal;
+            }
+
+            // 3. 交換附件數據 (attachmentsStore)
+            const tempAttach = attachStoreList[activeSortRowIdx];
+            if (attachStoreList[targetIdx]) {
+                attachStoreList[activeSortRowIdx] = attachStoreList[targetIdx];
+            } else {
+                delete attachStoreList[activeSortRowIdx];
+            }
+            if (tempAttach) {
+                attachStoreList[targetIdx] = tempAttach;
+            } else {
+                delete attachStoreList[targetIdx];
+            }
+
+            // 更新排序標記並持久化
+            activeSortRowIdx = null;
+            await persistToStorage();
+            
+            // 重新渲染畫面
+            renderTable(currentTab);
+        }
+
+        // --- 附件功能 ---
+
         function handleAttachmentClick(rowIndex, monthIndex) {
             if (isAdmin) { openAttachmentModal(rowIndex, monthIndex); } 
             else { const file = attachmentsStore[currentTab]?.[rowIndex]?.[monthIndex]; if (file) viewFileDirectly(file); }
@@ -648,262 +741,123 @@
 
         function initDragAndDrop() {
             const dropZone = document.getElementById('upload-status-box');
-            
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, preventDefaults, false);
-            });
-
-            function preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
-            });
-
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
-            });
-
-            dropZone.addEventListener('drop', (e) => {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                if (files.length > 0) {
-                    processFile(files[0]);
-                }
-            }, false);
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(name => dropZone.addEventListener(name, e => { e.preventDefault(); e.stopPropagation(); }, false));
+            ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, () => dropZone.classList.add('drag-over'), false));
+            ['dragleave', 'drop'].forEach(name => dropZone.addEventListener(name, () => dropZone.classList.remove('drag-over'), false));
+            dropZone.addEventListener('drop', e => { const files = e.dataTransfer.files; if (files.length > 0) processFile(files[0]); }, false);
         }
 
         function processFile(file) {
             if (!file) return;
-            const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
-            if (!allowedTypes.includes(file.type)) {
-                alert("不支援此檔案格式！僅限 PDF, PNG, JPG");
-                return;
-            }
-            
-            if (file.size > 10 * 1024 * 1024) { 
-                alert("檔案太大，建議單個檔案限制在 10MB 以內。"); 
-                return; 
-            }
-            
+            if (!['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { alert("不支援此格式！"); return; }
+            if (file.size > 10 * 1024 * 1024) { alert("檔案太大 (限 10MB)"); return; }
             const reader = new FileReader();
             reader.onload = async function(e) {
                 if (!attachmentsStore[currentTab]) attachmentsStore[currentTab] = {};
                 if (!attachmentsStore[currentTab][activeAttachmentTarget.row]) attachmentsStore[currentTab][activeAttachmentTarget.row] = {};
-                attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month] = { 
-                    name: file.name, 
-                    type: file.type, 
-                    data: e.target.result 
-                };
-                saveCurrentTabData(); // 保存表格數據
-                await persistToStorage(); // 保存至 IndexedDB
-                renderTable(currentTab); 
-                openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
+                attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month] = { name: file.name, type: file.type, data: e.target.result };
+                saveCurrentTabData(); await persistToStorage(); renderTable(currentTab); openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
             };
             reader.readAsDataURL(file);
         }
 
-        function handleFileUpload(input) {
-            processFile(input.files[0]);
-        }
-
+        function handleFileUpload(input) { processFile(input.files[0]); }
         function viewFileDirectly(file) {
-            const newWindow = window.open();
-            if (file.type === 'application/pdf') { 
-                newWindow.document.write(`<iframe src="${file.data}" frameborder="0" style="position:fixed; top:0; left:0; width:100%; height:100%;" allowfullscreen></iframe>`); 
-            } else { 
-                newWindow.document.write(`<div style="background:#f1f5f9; min-height:100vh; display:flex; justify-content:center; align-items:center;"><img src="${file.data}" style="max-width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);"></div>`); 
-            }
+            const win = window.open();
+            if (file.type === 'application/pdf') win.document.write(`<iframe src="${file.data}" frameborder="0" style="position:fixed; top:0; left:0; width:100%; height:100%;" allowfullscreen></iframe>`); 
+            else win.document.write(`<div style="background:#f1f5f9; min-height:100vh; display:flex; justify-content:center; align-items:center;"><img src="${file.data}" style="max-width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);"></div>`); 
         }
-
-        function viewCurrentFile() { const file = attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month]; if (file) viewFileDirectly(file); }
+        function viewCurrentFile() { const f = attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month]; if (f) viewFileDirectly(f); }
 
         async function deleteSingleAttachment() {
-            if (!activeAttachmentTarget || !confirm("確定刪除此月份的單筆附件？")) return;
-            if (attachmentsStore[currentTab] && attachmentsStore[currentTab][activeAttachmentTarget.row]) {
+            if (!activeAttachmentTarget || !confirm("確定刪除？")) return;
+            if (attachmentsStore[currentTab]?.[activeAttachmentTarget.row]) {
                 delete attachmentsStore[currentTab][activeAttachmentTarget.row][activeAttachmentTarget.month];
                 if (Object.keys(attachmentsStore[currentTab][activeAttachmentTarget.row]).length === 0) delete attachmentsStore[currentTab][activeAttachmentTarget.row];
-                saveCurrentTabData();
-                await persistToStorage(); 
-                renderTable(currentTab); 
-                openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
+                saveCurrentTabData(); await persistToStorage(); renderTable(currentTab); openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
             }
         }
 
         async function batchApplyToFile() {
-            const file = attachmentsStore[currentTab]?.[activeAttachmentTarget.row]?.[activeAttachmentTarget.month];
-            if (!file) { alert("請先上傳一個檔案作為範本"); return; }
-            if (!confirm("確定將此檔案套用全年度？")) return;
-            if (!attachmentsStore[currentTab]) attachmentsStore[currentTab] = {};
+            const f = attachmentsStore[currentTab]?.[activeAttachmentTarget.row]?.[activeAttachmentTarget.month];
+            if (!f) { alert("請先上傳檔案"); return; }
+            if (!confirm("確定套用全年度？")) return;
             if (!attachmentsStore[currentTab][activeAttachmentTarget.row]) attachmentsStore[currentTab][activeAttachmentTarget.row] = {};
-            for (let i = 1; i <= 12; i++) { attachmentsStore[currentTab][activeAttachmentTarget.row][i] = { ...file }; }
-            saveCurrentTabData();
-            await persistToStorage(); 
-            renderTable(currentTab); 
-            alert("已成功套用到全年度");
+            for (let i = 1; i <= 12; i++) attachmentsStore[currentTab][activeAttachmentTarget.row][i] = { ...f };
+            saveCurrentTabData(); await persistToStorage(); renderTable(currentTab); alert("套用成功");
         }
 
         async function batchClearRowAttachments() {
-            if (!confirm("確定清除此績效指標「全年度」的所有附件檔案？")) return;
-            if (attachmentsStore[currentTab] && attachmentsStore[currentTab][activeAttachmentTarget.row]) {
-                delete attachmentsStore[currentTab][activeAttachmentTarget.row];
-                saveCurrentTabData();
-                await persistToStorage(); 
-                renderTable(currentTab);
-                if (activeAttachmentTarget) openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month);
-            }
+            if (!confirm("確定清除全年度？")) return;
+            if (attachmentsStore[currentTab]?.[activeAttachmentTarget.row]) { delete attachmentsStore[currentTab][activeAttachmentTarget.row]; saveCurrentTabData(); await persistToStorage(); renderTable(currentTab); if (activeAttachmentTarget) openAttachmentModal(activeAttachmentTarget.row, activeAttachmentTarget.month); }
         }
 
-        // 核心邏輯
+        // --- 核心邏輯與 UI 互動 ---
+
         function autoResize(textarea) { textarea.style.height = 'auto'; textarea.style.height = textarea.scrollHeight + 'px'; }
 
         function handleAuthClick() {
-            if (isAdmin) { if (confirm("是否退出管理員編輯模式？")) { isAdmin = false; updateUIState(); renderTable(currentTab); } } 
+            if (isAdmin) { if (confirm("退出管理模式？")) { isAdmin = false; updateUIState(); renderTable(currentTab); } } 
             else { openLoginModal(); }
         }
 
         function openLoginModal() { document.getElementById('login-modal').classList.remove('hidden'); togglePasswordView(false); document.getElementById('login-password').focus(); }
         function closeLoginModal() { document.getElementById('login-modal').classList.add('hidden'); document.getElementById('login-password').value = ''; }
-        function togglePasswordView(showChange) {
-            const loginView = document.getElementById('login-view');
-            const changeView = document.getElementById('change-pwd-view');
-            if (showChange) { loginView.classList.add('hidden'); changeView.classList.remove('hidden'); } 
-            else { loginView.classList.remove('hidden'); changeView.classList.add('hidden'); }
+        function togglePasswordView(s) {
+            const lV = document.getElementById('login-view'); const cV = document.getElementById('change-pwd-view');
+            if (s) { lV.classList.add('hidden'); cV.classList.remove('hidden'); } else { lV.classList.remove('hidden'); cV.classList.add('hidden'); }
         }
 
         function getAdminPassword() { return localStorage.getItem('ospms_admin_pwd') || '1068'; }
 
         function attemptLogin() {
-            if (document.getElementById('login-password').value === getAdminPassword()) { 
-                isAdmin = true; updateUIState(); closeLoginModal(); renderTable(currentTab); 
-            } else { document.getElementById('login-error').classList.remove('hidden'); }
+            if (document.getElementById('login-password').value === getAdminPassword()) { isAdmin = true; updateUIState(); closeLoginModal(); renderTable(currentTab); } 
+            else { document.getElementById('login-error').classList.remove('hidden'); }
         }
 
         function handleChangePassword() {
-            const oldPwd = document.getElementById('old-password').value;
-            const newPwd = document.getElementById('new-password').value;
-            const errorEl = document.getElementById('pwd-change-error');
-            errorEl.classList.add('hidden');
-            if (oldPwd !== getAdminPassword()) { errorEl.innerText = "舊密碼不正確"; errorEl.classList.remove('hidden'); return; }
-            if (newPwd.length < 4) { errorEl.innerText = "新密碼至少需要 4 位數"; errorEl.classList.remove('hidden'); return; }
-            localStorage.setItem('ospms_admin_pwd', newPwd);
-            alert("管理密碼修改成功！");
-            document.getElementById('old-password').value = ''; document.getElementById('new-password').value = ''; togglePasswordView(false);
+            const old = document.getElementById('old-password').value; const newP = document.getElementById('new-password').value; const err = document.getElementById('pwd-change-error');
+            err.classList.add('hidden'); if (old !== getAdminPassword()) { err.innerText = "舊密碼不正確"; err.classList.remove('hidden'); return; }
+            if (newP.length < 4) { err.innerText = "至少 4 位數"; err.classList.remove('hidden'); return; }
+            localStorage.setItem('ospms_admin_pwd', newP); alert("修改成功"); togglePasswordView(false);
         }
 
         function updateUIState() {
-            const authIcon = document.getElementById('auth-icon');
-            const badge = document.getElementById('admin-badge');
-            if (isAdmin) {
-                authIcon.setAttribute('data-lucide', 'unlock');
-                authIcon.classList.replace('text-slate-500', 'text-orange-500');
-                badge.classList.remove('hidden');
-            } else {
-                authIcon.setAttribute('data-lucide', 'lock');
-                authIcon.classList.replace('text-orange-500', 'text-slate-500');
-                badge.classList.add('hidden');
-            }
+            const icon = document.getElementById('auth-icon'); const badge = document.getElementById('admin-badge');
+            if (isAdmin) { icon.setAttribute('data-lucide', 'unlock'); icon.classList.replace('text-slate-500', 'text-orange-500'); badge.classList.remove('hidden'); } 
+            else { icon.setAttribute('data-lucide', 'lock'); icon.classList.replace('text-orange-500', 'text-slate-500'); badge.classList.add('hidden'); }
             lucide.createIcons();
         }
 
-        async function saveAndLogout() {
-            saveCurrentTabData(); 
-            await persistToStorage(); 
-            isAdmin = false; 
-            updateUIState(); 
-            renderTable(currentTab);
-            alert("資料已儲存並退出編輯模式");
-        }
+        async function saveAndLogout() { saveCurrentTabData(); await persistToStorage(); isAdmin = false; updateUIState(); renderTable(currentTab); alert("已儲存並登出"); }
 
-        function addNewRow() {
-            saveCurrentTabData();
-            appData[currentTab].push({ id: (appData[currentTab].length + 1).toString(), name: "新項目", content: "內容描述", schedule: "適時", target: "100%" });
-            renderTable(currentTab);
-        }
-
-        async function deleteRow(idx) { 
-            if (confirm("確定刪除？")) { 
-                saveCurrentTabData(); appData[currentTab].splice(idx, 1); 
-                if (attachmentsStore[currentTab] && attachmentsStore[currentTab][idx]) delete attachmentsStore[currentTab][idx];
-                await persistToStorage();
-                renderTable(currentTab); 
-            } 
-        }
+        function addNewRow() { saveCurrentTabData(); appData[currentTab].push({ id: (appData[currentTab].length + 1).toString(), name: "新項目", content: "內容描述", schedule: "適時", target: "100%" }); renderTable(currentTab); }
+        async function deleteRow(idx) { if (confirm("確定刪除？")) { saveCurrentTabData(); appData[currentTab].splice(idx, 1); if (attachmentsStore[currentTab]?.[idx]) delete attachmentsStore[currentTab][idx]; await persistToStorage(); renderTable(currentTab); } }
 
         function handleYearFormat(input) {
-            let val = input.value.trim();
-            let match = val.match(/\d+/);
-            if (match) {
-                let y = parseInt(match[0]);
-                if (y > 1911) input.value = `${y}年度 (${y - 1911}年)`;
-                else input.value = `${y + 1911}年度 (${y}年)`;
-            }
+            let val = input.value.trim(); let match = val.match(/\d+/);
+            if (match) { let y = parseInt(match[0]); if (y > 1911) input.value = `${y}年度 (${y - 1911}年)`; else input.value = `${y + 1911}年度 (${y}年)`; }
         }
 
         function appendPercentage(input) {
             let v = input.value.trim();
-            if (v !== "" && v !== "-" && v !== "N/A" && !isNaN(v)) { 
-                input.value = v + "%"; 
-                formatInput(input); 
-            }
+            if (v !== "" && v !== "-" && v !== "N/A" && !isNaN(v)) { input.value = v + "%"; formatInput(input); }
         }
 
-        // 新增：處理輸入內容
         function handleInputChange(input) {
-            let val = input.value.trim();
-            // 當輸入為 N 或 n 時，自動帶入 N/A
-            if (val.toUpperCase() === 'N') {
-                input.value = 'N/A';
-            }
+            let val = input.value.trim(); if (val.toUpperCase() === 'N') input.value = 'N/A';
             formatInput(input);
         }
 
-        function formatInput(input) {
-            let val = input.value.trim().toUpperCase();
-            let num = parseFloat(val);
-            if (val === "" || val === "-") { input.style.color = '#94a3b8'; return; }
-            if (val === "N/A") { input.style.color = '#94a3b8'; return; } // N/A 顏色設定
-            if (val.includes('合格') || val === 'OK') { input.style.color = '#059669'; return; }
-            if (!isNaN(num)) {
-                if (num <= 30) input.style.color = '#ef4444';
-                else if (num <= 70) input.style.color = '#f59e0b';
-                else if (num < 100) input.style.color = '#2563eb';
-                else input.style.color = '#059669';
-            }
-        }
+        function formatInput(input) { input.style.color = '#475569'; }
 
         function handleKeyDown(e, input) {
-            const cell = input.parentElement; 
-            const row = cell.parentElement; 
-            const tableBody = row.parentElement;
-            const cells = Array.from(row.cells); 
-            const rows = Array.from(tableBody.rows);
-            const rIdx = rows.indexOf(row); 
-            const cIdx = cells.indexOf(cell);
-
-            if (e.key === "Enter" || e.key === "ArrowDown") {
-                e.preventDefault(); 
-                if (rIdx < rows.length - 1) rows[rIdx + 1].cells[cIdx].querySelector('input')?.focus();
-            } else if (e.key === "ArrowUp") {
-                e.preventDefault(); 
-                if (rIdx > 0) rows[rIdx - 1].cells[cIdx].querySelector('input')?.focus();
-            } else if (e.key === "ArrowRight") {
-                if (input.selectionStart === input.value.length) {
-                    if (cIdx < cells.length - 1) {
-                        const nextInput = cells[cIdx + 1].querySelector('input');
-                        if (nextInput) { e.preventDefault(); nextInput.focus(); nextInput.select(); }
-                    }
-                }
-            } else if (e.key === "ArrowLeft") {
-                if (input.selectionStart === 0) {
-                    if (cIdx > 0) {
-                        const prevInput = cells[cIdx - 1].querySelector('input');
-                        if (prevInput) { e.preventDefault(); prevInput.focus(); prevInput.select(); }
-                    }
-                }
-            }
+            const cell = input.parentElement; const row = cell.parentElement; const tbody = row.parentElement; const cells = Array.from(row.cells); const rows = Array.from(tbody.rows);
+            const rIdx = rows.indexOf(row); const cIdx = cells.indexOf(cell);
+            if (e.key === "Enter" || e.key === "ArrowDown") { e.preventDefault(); if (rIdx < rows.length - 1) rows[rIdx + 1].cells[cIdx].querySelector('input')?.focus(); } 
+            else if (e.key === "ArrowUp") { e.preventDefault(); if (rIdx > 0) rows[rIdx - 1].cells[cIdx].querySelector('input')?.focus(); }
+            else if (e.key === "ArrowRight") { if (input.selectionStart === input.value.length && cIdx < cells.length - 1) { const next = cells[cIdx + 1].querySelector('input'); if (next) { e.preventDefault(); next.focus(); next.select(); } } }
+            else if (e.key === "ArrowLeft") { if (input.selectionStart === 0 && cIdx > 0) { const prev = cells[cIdx - 1].querySelector('input'); if (prev) { e.preventDefault(); prev.focus(); prev.select(); } } }
         }
 
         window.onload = () => { loadFromStorage(); };
