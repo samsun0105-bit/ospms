@@ -2362,16 +2362,19 @@ main > .p-4,
         type="button"
         onclick="openCloudPreviewModal()"
         class="w-full mb-2
-               h-8
-               rounded-xl
                bg-sky-600
                hover:bg-sky-700
                text-white
-               text-[11px] sm:text-xs font-black
-               transition-colors duration-200
+               px-3 sm:px-5
+               py-2 sm:py-2.5
+               rounded-xl
+               text-[11px] sm:text-xs
+               font-black
+               transition-all
+               shadow-md
                flex items-center
                justify-center
-               space-x-2"
+               gap-1.5 sm:gap-2"
         title="開啟雲端中心">
 
     <i class="fas fa-cloud text-white"></i>
@@ -2380,7 +2383,7 @@ main > .p-4,
 
 </button>
 
-<button class="w-full bg-blue-600 text-white py-3 rounded-xl text-[11px] sm:text-xs font-black flex items-center justify-center space-x-2 hover:bg-blue-500 transition" onclick="exportFullReport()">
+<button class="w-full bg-blue-600 text-white px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-blue-500 transition-all shadow-md" onclick="exportFullReport()">
     <i class="fas fa-file-export"></i>
     <span>匯出年度績效報表</span>
 </button>
