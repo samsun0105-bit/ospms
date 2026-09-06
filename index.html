@@ -7,6 +7,23 @@
     <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 
+<!-- Font Awesome：提前建立 CDN 連線 -->
+<link
+    rel="preconnect"
+    href="https://cdnjs.cloudflare.com"
+    crossorigin
+>
+
+<!-- Font Awesome：優先載入 Solid 圖示字型 -->
+<link
+    rel="preload"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2"
+    as="font"
+    type="font/woff2"
+    crossorigin
+>
+
+<!-- Font Awesome Icons -->
 <link
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     rel="stylesheet"
@@ -17,7 +34,20 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; overflow: hidden; }
-        
+
+/* =========================================================
+   上方功能按鈕初始化
+   Lucide 圖示尚未完成轉換前先不顯示，
+   避免文字先出現、圖示稍後補上的視覺斷層。
+========================================================= */
+#header-action-buttons {
+    visibility: hidden;
+}
+
+html.performance-icons-ready #header-action-buttons {
+    visibility: visible;
+}        
+
         .sidebar { width: 280px; flex-shrink: 0; }
 
 /* 左側功能列捲軸美化：深色融合版 */
@@ -2571,12 +2601,12 @@ main > .p-4,
                 </button>
 
                 <div class="pr-8">
-                    <div class="flex items-center gap-2.5">
-                        <i data-lucide="lock-keyhole" class="w-5 h-5 text-yellow-300"></i>
-                        <h3 class="text-lg font-black tracking-wide">
-                            權限登入
-                        </h3>
-                    </div>
+<div class="flex items-center gap-2.5">
+    <i class="fas fa-lock text-yellow-300 text-base"></i>
+    <h3 class="text-lg font-black tracking-wide">
+        權限登入
+    </h3>
+</div>
 
                     <p class="mt-1 text-[11px] text-slate-300 tracking-[0.14em] font-semibold">
                         ACCESS CONTROL
@@ -2588,10 +2618,10 @@ main > .p-4,
             <div class="px-5 py-5 space-y-4">
 
                 <!-- 安全登入狀態列 -->
-                <div class="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-2.5 text-base font-black">
-                    <i data-lucide="shield-check" class="w-5 h-5 text-indigo-600"></i>
-                    安全驗證
-                </div>
+<div class="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-2.5 text-base font-black">
+    <i class="fas fa-shield-halved text-indigo-600 text-base"></i>
+    安全驗證
+</div>
 
                 <p class="text-center text-xs text-slate-500 leading-relaxed">
                     請輸入管理者或使用者密碼，以啟動對應的系統操作權限。
@@ -2624,9 +2654,6 @@ main > .p-4,
                     密碼錯誤，請重新輸入
                 </p>
 
-                <p class="text-[10px] text-center text-slate-400 leading-relaxed">
-                    未登入狀態可檢視資料、載入預覽、列印報告與匯出報表；新增、編輯、附件上傳、正式載入與資料匯出需登入權限。
-                </p>
             </div>
         </div>
 
@@ -25227,6 +25254,16 @@ function togglePerformanceEditMode() {
     );
 }
 
+/*
+ * 績效系統上方功能按鈕：
+ * 等 Lucide 圖示完成建立後再一次顯示。
+ */
+function showPerformanceHeaderActions() {
+    document.documentElement.classList.add(
+        'performance-icons-ready'
+    );
+}
+
 function updateUIState() {
     const icon =
         document.getElementById(
@@ -25320,7 +25357,13 @@ if (yearInput) {
 
 applyPerformanceEditModeUI();
 updateJsonActionButtons();
+
+/*
+ * 先完成 Lucide 圖示轉換，
+ * 再顯示上方功能按鈕。
+ */
 lucide.createIcons();
+showPerformanceHeaderActions();
 }
 
 function logoutSystem() {
@@ -26049,6 +26092,32 @@ function initButtonTitleRemoval() {
 window.onload = () => {
     initButtonTitleRemoval();
     loadFromStorage();
+
+    /*
+     * 顯示防呆：
+     * 正常情況會由 updateUIState()
+     * 在 Lucide 建立完成後顯示上方按鈕。
+     *
+     * 若 IndexedDB 或初始化流程異常延遲，
+     * 最遲仍會自行建立 Lucide 並顯示按鈕，
+     * 避免功能列永久不可見。
+     */
+    setTimeout(() => {
+
+        if (
+            !document.documentElement.classList.contains(
+                'performance-icons-ready'
+            )
+        ) {
+
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+
+            showPerformanceHeaderActions();
+        }
+
+    }, 1500);
 };
     </script>
 </body>
